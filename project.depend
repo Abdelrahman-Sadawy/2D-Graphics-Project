@@ -17,3 +17,16 @@
 	<vector>
 	<stack>
 
+1653931207 source:d:\semster_6\graphics\assignments\project\main.cpp
+	<iostream>
+	<tchar.h>
+	<math.h>
+	<windows.h>
+	<list>
+	<string>
+	<sstream>
+	<fstream>
+	<vector>
+	<stack>
+	<cstdarg>
+

@@ -13,7 +13,7 @@
 #include <fstream>
 #include <vector>
 #include <stack>
-
+#include <cstdarg>
 #define GREEN 1
 #define BLACK 2
 #define BLUE 3
@@ -46,8 +46,14 @@
 #define CARDINALSPLINE 30
 #define FLOODRECURSIVE 31
 #define FLOODNONRECURSIVE 32
-
+#define LOAD 33
 using namespace std;
+
+int algo = 0;
+COLORREF c;
+COLORREF tempC;
+LPCSTR mouse = IDC_ARROW;
+HMENU hmenu;
 
 //---------------------------
 list<string> fileContent;
@@ -66,19 +72,14 @@ void save()
 string tostring(int a)
 {
     stringstream stream;
-
     stream << a;
-
-    // initializing a string
-
     string str;
-
     stream >> str;
 
     return str;
 }
 
-string color_tostring(COLORREF c)
+string tostring(COLORREF c)
 {
     if(c == RGB(255,0,0))
         return "red";
@@ -90,15 +91,114 @@ string color_tostring(COLORREF c)
         return "blue";
     else if(c == RGB(0,255,0))
         return "green";
+}
+
+string concatenateString(string funName,int ni, ...)
+{
+    string temp;
+    va_list v;
+    va_start(v, ni);
+    temp+=funName;
+    for(int i=0; i<ni; i++)
+    {
+        temp+=',';
+        int arg = va_arg(v, int);
+        temp+= tostring(arg);
+    }
+    temp+=',';
+    va_end(v);
+    return temp;
+}
+
+#define max 10
+string* split (string str, char seperator)
+{
+    string* strings = new string[max];
+    //string strings[max];
+    int currIndex = 0, i = 0;
+    int startIndex = 0, endIndex = 0;
+    while (i <= str.length())
+    {
+        if (str[i] == seperator || i == str.length())
+        {
+            endIndex = i;
+            string subStr = "";
+            subStr.append(str, startIndex, endIndex - startIndex);
+            strings[currIndex] = subStr;
+            currIndex += 1;
+            startIndex = endIndex + 1;
+        }
+        i++;
+    }
+    return strings;
+}
+
+void stringToColor(string color)
+{
+
+    if(color == "red")
+        c = RGB(255,0,0);
+    else if(color == "yellow")
+        c = RGB(255,255,0);
+    else if(color == "black")
+        c = RGB(0,0,0);
+    else if(color == "blue")
+        c = RGB(0,0,255);
+    else if(color == "green")
+        c = RGB(0,255,0);
+}
+
+int toInt(string str)
+{
+    stringstream ss;
+
+    int num;
+
+    ss << str;
+
+    ss >> num;
+
+    return num;
+}
+void LineDDA(HDC hdc, int x1, int y1, int x2, int y2);
+void callFunc(string* functionData, HDC hdc)
+{
+    string funName = functionData[0];
+
+    if(funName=="LineDDA")  //LineDDA(hdc, xc, yc, x, y)
+    {
+        stringToColor(functionData[5]);
+        //std::copy(a + src_begin_index,a + src_begin_index + elements_to_copy,b + dest_begin_index);
+        //string* arr = new int[4];
+        //copy(functionData+1, functionData+5,arr);
+        LineDDA(hdc, toInt(functionData[1]), toInt(functionData[2]), toInt(functionData[3]), toInt(functionData[4]));
+    }
+
+
 
 
 }
+void load(HDC hdc)
+{
+    string myText;
+
+    char seperator = ',';
+
+    ifstream MyReadFile("Commands.txt");
+
+    while (getline (MyReadFile, myText)) {
+
+        string* functionData = split(myText,seperator);
+
+        callFunc(functionData, hdc);
+    }
+
+    MyReadFile.close();
+}
+
+
 //---------------------------
-int algo = 0;
-COLORREF c;
-COLORREF tempC;
-LPCSTR mouse = IDC_ARROW;
-HMENU hmenu;
+
 void printColorOptions()
 {
     int color;
@@ -266,6 +366,7 @@ void menus(HWND hwnd)
     AppendMenu(FloodFill, MF_STRING, FLOODNONRECURSIVE, _T("Non Recursive"));
 
     AppendMenu(hmenu, MF_STRING, SAVE, _T("Save"));
+    AppendMenu(hmenu, MF_STRING, LOAD, _T("load"));
     AppendMenu(hmenu, MF_POPUP, (UINT_PTR) colorMenu, _T("Color"));
     AppendMenu(hmenu, MF_POPUP, (UINT_PTR) mouseMenu, _T("Mouse"));
     AppendMenu(hmenu, MF_POPUP, (UINT_PTR)LineMenu, _T("Line"));
@@ -977,7 +1078,7 @@ typedef struct
 {
     int xLeft, xRight;
 } edgeTable[800];
-
+/*
 void initEdgeTable(edgeTable table)
 {
     for (int i = 0; i < 800; i++)
@@ -1048,7 +1149,7 @@ void fillPolygon (HDC hdc, Point points[], int n)
     polygon2Table(points, n, table);
     table2Screen(hdc, table);
 
-}
+}*/
 //Rectangle clipping
 void PointClippingRect(HDC hdc, int x, int y, int xleft, int ytop, int xright, int ybottom)
 {
@@ -1159,35 +1260,39 @@ LRESULT CALLBACK WindowProcedure (HWND hwnd, UINT message, WPARAM wParam, LPARAM
                 cnt++;
                 if (algo == FLOODRECURSIVE) {
                     FloodFillRec(hdc, x, y, tempC, c);
+                    line = concatenateString("FloodFillRec", 2, x,  y) + tostring(tempC) +','+ tostring(c);
+                    fileContent.push_back(line);
                 }
                 else if (algo == FLOODNONRECURSIVE) {
                     FLoodFillNonRec(hdc, x, y, tempC, c);
+                    line = concatenateString("FLoodFillNonRec", 2, x,  y) + tostring(tempC) +','+ tostring(c);
+                    fileContent.push_back(line);
                 }
                 if(algo == POINTCLIPPINCIRCLE)
                 {
                     pointClippingCircle(hdc, x,  y,  xc,  yc,  radius);
-                    line = "pointClippingCircle,"+tostring(x)+','+tostring(y)+','+tostring(xc)+','+tostring(yc)+','+tostring(radius)+','+color_tostring(c);
+                    line = concatenateString("pointClippingCircle", 5, x,  y,  xc, yc, radius) + tostring(c);
                     fileContent.push_back(line);
                     cnt = 0;
                 }
                 else if(algo == POINTCLIPPINGRECT)
                 {
-                    PointClippingRect(hdc, x, y, 100,50, 400,200);
-                    line = "PointClippingRect,"+tostring(x)+','+tostring(y)+','+tostring(100)+','+tostring(50)+','+tostring(400)+','+tostring(200)+','+color_tostring(c);
+                    PointClippingRect(hdc, x, y, 100, 50, 400, 200);
+                    line = concatenateString("PointClippingRect", 6, x,  y,  100, 50, 400, 200) + tostring(c);
                     fileContent.push_back(line);
                     cnt = 0;
                 }
                 else if(algo == LINEFILLING)
                 {
                     circleFillingLine(hdc, x, y, xc, yc, radius);
-                    line = "circleFillingLine,"+tostring(x)+','+tostring(y)+','+tostring(xc)+','+tostring(yc)+','+tostring(radius)+','+color_tostring(c);
+                    line = concatenateString("circleFillingLine", 5, x,  y,  xc, yc, radius) + tostring(c);
                     fileContent.push_back(line);
                     cnt = 0;
                 }
                 else if(algo == CIRCLEFILLING)
                 {
                     circleFillingCircle(hdc, x, y, xc, yc, radius);
-                    line = "circleFillingCircle,"+tostring(x)+','+tostring(y)+','+tostring(xc)+','+tostring(yc)+','+tostring(radius)+','+color_tostring(c);
+                    line = concatenateString("circleFillingCircle", 5, x,  y,  xc, yc, radius) + tostring(c);
                     fileContent.push_back(line);
                     cnt = 0;
                 }
@@ -1200,7 +1305,7 @@ LRESULT CALLBACK WindowProcedure (HWND hwnd, UINT message, WPARAM wParam, LPARAM
                 if(algo == LINECLIPPINCIRCLE)
                 {
                     lineClippingCircle(hdc, x, y, x2, y2, xc, yc, radius);
-                    line = "lineClippingCircle,"+tostring(x)+','+tostring(y)+','+tostring(x2)+','+tostring(y2)+','+tostring(xc)+','+tostring(yc)+','+tostring(radius);
+                    line = concatenateString("lineClippingCircle", 7, x, y, x2, y2, xc, yc, radius) + tostring(c);
                     fileContent.push_back(line);
                     cnt = 0;
                 }
@@ -1229,46 +1334,49 @@ LRESULT CALLBACK WindowProcedure (HWND hwnd, UINT message, WPARAM wParam, LPARAM
                     {
                         case LINEDDA:
                             LineDDA(hdc, xc, yc, x, y);
-                            line = "LineDDA,"+tostring(xc)+','+tostring(yc)+','+tostring(x)+tostring(y)+','+color_tostring(c);
+                            line = concatenateString("LineDDA", 4, xc, yc, x, y) + tostring(c);
+                            fileContent.push_back(line);
                             break;
                         case LINEMIDPOINT:
                             LineMidPoint(hdc, xc, yc, x, y);
-                            line = "LineMidpoint,"+tostring(xc)+','+tostring(yc)+','+tostring(x)+tostring(y)+','+color_tostring(c);
+                            line = concatenateString("LineMidPoint", 4, xc, yc, x, y) + tostring(c);
+                            fileContent.push_back(line);
                             break;
                         case LINEPARAMETRIC:
-                            line = "LineParametric,"+tostring(xc)+','+tostring(yc)+','+tostring(x)+tostring(y)+','+color_tostring(c);
                             LineParametric(hdc, xc, yc, x, y);
+                            line = concatenateString("LineParametric", 4, xc, yc, x, y) + tostring(c);
+                            fileContent.push_back(line);
                             break;
                         case DirectC:
                             circleDirect(hdc, xc, yc, radius);
-                            line = "circleDirect,"+tostring(xc)+','+tostring(yc)+','+tostring(radius)+','+color_tostring(c);
-                            fileContent.push_back(line);;
+                            line = concatenateString("circleDirect", 3, xc, yc, radius) + tostring(c);
+                            fileContent.push_back(line);
                             break;
                         case PolarC:
                             circlePolar(hdc, xc, yc, radius);
-                            line = "circlePolar,"+tostring(xc)+','+tostring(yc)+','+tostring(radius)+','+color_tostring(c);
+                            line = concatenateString("circlePolar", 3, xc, yc, radius) + tostring(c);
                             fileContent.push_back(line);
                             break;
                         case ItPolarC:
                             circleIterative(hdc, xc, yc, radius);
-                            line = "circleIterative,"+tostring(xc)+','+tostring(yc)+','+tostring(radius)+','+color_tostring(c);
+                            line = concatenateString("circleIterative", 3, xc, yc, radius) + tostring(c);
                             fileContent.push_back(line);
                             break;
                         case MidpointC:
                             midpointCircle(hdc, xc, yc, radius);
-                            line = "midpointCircle,"+tostring(xc)+','+tostring(yc)+','+tostring(radius)+','+color_tostring(c);
+                            line = concatenateString("midpointCircle", 3, xc, yc, radius) + tostring(c);
                             fileContent.push_back(line);
                             break;
                         case ModifiedMidpointC:
                             modifiedMidpointCircle(hdc, xc, yc, radius);
-                            line = "modifiedMidpointCircle,"+tostring(xc)+','+tostring(yc)+','+tostring(radius)+','+color_tostring(c);
+                            line = concatenateString("modifiedMidpointCircle", 3, xc, yc, radius) + tostring(c);
                             fileContent.push_back(line);
                             break;
                         case DIRECTELLIPSE:
                             a = abs(xc - x);
                             b = abs(yc - y);
                             directEllipse(hdc, xc, yc, a, b);
-                            line = "directEllipse,"+tostring(xc)+','+tostring(yc)+','+tostring(a)+','+tostring(b)+','+color_tostring(c);
+                            line = concatenateString("directEllipse", 4, xc, yc, a, b) + tostring(c);
                             fileContent.push_back(line);
                             cnt = 0;
                             break;
@@ -1276,19 +1384,19 @@ LRESULT CALLBACK WindowProcedure (HWND hwnd, UINT message, WPARAM wParam, LPARAM
                             a = abs(xc - x);
                             b = abs(yc - y);
                             polarEllipse(hdc, xc, yc, a, b);
-                            line = "polarEllipse,"+tostring(xc)+','+tostring(yc)+','+tostring(a)+','+tostring(b)+','+color_tostring(c);
+                            line = concatenateString("polarEllipse", 4, xc, yc, a, b) + tostring(c);
                             fileContent.push_back(line);
                             break;
                         case MIDPOINTELLIPSE:
                             a = abs(xc - x);
                             b = abs(yc - y);
                             ellipseMidPoint(hdc, xc, yc, a, b);
-                            line = "ellipseMidPoint,"+tostring(xc)+','+tostring(yc)+','+tostring(a)+','+tostring(b)+','+color_tostring(c);
+                            line = concatenateString("ellipseMidPoint", 4,  xc, yc, a, b) + tostring(c);
                             fileContent.push_back(line);
                             break;
                         case LINECLIPPINGRECT:
-                            CohenSuth(hdc, xc, yc, x, y, 100,50, 400,200);
-                            line = "CohenSuth,"+tostring(xc)+','+tostring(yc)+','+tostring(x)+','+tostring(y)+','+tostring(100)+','+tostring(50)+','+tostring(400)+','+tostring(200);
+                            CohenSuth(hdc, xc, yc, x, y, 100, 50, 400, 200);
+                            line = concatenateString("CohenSuth", 8, xc, yc, x, y, 100, 50, 400, 200) + tostring(c);
                             fileContent.push_back(line);
                             break;
                         default:
@@ -1312,7 +1420,7 @@ LRESULT CALLBACK WindowProcedure (HWND hwnd, UINT message, WPARAM wParam, LPARAM
                         case CONVEX:
                         {
                             Point points [] = {Point(xc, yc), Point(x, y), Point(x1, y_1), Point(x2, y2)};
-                            fillPolygon(hdc, points, 4);
+                            //fillPolygon(hdc, points, 4);
                             break;
                         }
 
@@ -1377,6 +1485,9 @@ LRESULT CALLBACK WindowProcedure (HWND hwnd, UINT message, WPARAM wParam, LPARAM
                         break;
                     case SAVE:
                         save();
+                        break;
+                    case LOAD:
+                        load(hdc);
                         break;
 
                     default:
