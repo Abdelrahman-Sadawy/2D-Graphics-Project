@@ -37,6 +37,10 @@
 #define POINTCLIPPINGRECT 24
 #define LINECLIPPINGRECT 25
 #define SAVE 26
+#define LINEDDA 27
+#define LINEMIDPOINT 28
+#define LINEPARAMETRIC 29
+
 using namespace std;
 
 //---------------------------
@@ -166,8 +170,8 @@ int WINAPI WinMain (HINSTANCE hThisInstance,
            WS_OVERLAPPEDWINDOW, /* default window */
            CW_USEDEFAULT,       /* Windows decides the position */
            CW_USEDEFAULT,       /* where the window ends up on the screen */
-           544,                 /* The programs width */
-           375,                 /* and height in pixels */
+           844,                 /* The programs width */
+           575,                 /* and height in pixels */
            HWND_DESKTOP,        /* The window is a child-window to desktop */
            NULL,                /* No menu */
            hThisInstance,       /* Program Instance handler */
@@ -207,6 +211,11 @@ void menus(HWND hwnd)
     AppendMenu(mouseMenu, MF_STRING, WAIT, _T("Wait"));
     AppendMenu(mouseMenu, MF_STRING, STANDARDARROW, _T("Standardarrow"));
 
+    HMENU LineMenu = CreateMenu();
+	AppendMenu(LineMenu, MF_STRING, LINEDDA, _T("DDA"));
+	AppendMenu(LineMenu, MF_STRING, LINEMIDPOINT, _T("Midpoint"));
+	AppendMenu(LineMenu, MF_STRING, LINEPARAMETRIC, _T("Parametric"));
+
     HMENU circleMenu = CreateMenu();
     AppendMenu(circleMenu, MF_STRING, DirectC, _T("Direct"));
     AppendMenu(circleMenu, MF_STRING, PolarC, _T("Polar"));
@@ -245,6 +254,7 @@ void menus(HWND hwnd)
     AppendMenu(hmenu, MF_STRING, SAVE, _T("Save"));
     AppendMenu(hmenu, MF_POPUP, (UINT_PTR) colorMenu, _T("Color"));
     AppendMenu(hmenu, MF_POPUP, (UINT_PTR) mouseMenu, _T("Mouse"));
+    AppendMenu(hmenu, MF_POPUP, (UINT_PTR)LineMenu, _T("Line"));
     AppendMenu(hmenu, MF_POPUP, (UINT_PTR) circleMenu, _T("Circle"));
     AppendMenu(hmenu, MF_POPUP, (UINT_PTR) ellipseMenu, _T("Ellipse"));
     AppendMenu(hmenu, MF_POPUP, (UINT_PTR) clippingMenu, _T("Clipping"));
@@ -256,6 +266,192 @@ int Round(double x )
 {
     return (int) (x+0.5);
 }
+
+void Swap(int& x1, int& y1, int& x2, int& y2)
+{
+    int temp = x1;
+    x1 = x2;
+    x2 = temp;
+
+    temp = y1;
+    y1 = y2;
+    y2 = temp;
+}
+
+void LineDDA(HDC hdc, int x1, int y1, int x2, int y2)
+{
+    int dx = x2 - x1;
+    int dy = y2 - y1;
+    if (abs(dy) <= abs(dx)) {
+
+        if (x1 > x2) Swap(x1, y1, x2, y2);
+        SetPixel(hdc, x1, y1, c);
+
+        int x = x1;
+        double y = y1;
+        double m = (double)dy/dx;
+
+        while (x < x2) {
+            x++;
+            y += m;
+            SetPixel(hdc, x, Round(y), c);
+        }
+
+    }
+    else {
+
+        if (y1 > y2) Swap(x1, y1, x2, y2);
+        SetPixel(hdc, x1, y1, c);
+
+        int y = y1;
+        double x = x1;
+        double m = (double)dx/dy;
+
+        while (y < y2) {
+            y++;
+            x += m;
+            SetPixel(hdc, Round(x), y, c);
+        }
+
+    }
+}
+
+void LineParametric(HDC hdc, int x1, int y1, int x2, int y2)
+{
+    int x, y;
+    for (double t = 0; t <= 1; t += 0.001) {
+        x = x1 + t * (x2 - x1);
+        y = y1 + t * (y2 - y1);
+        SetPixel(hdc, x, y, c);
+    }
+}
+
+void LineMidPoint(HDC hdc, int x1, int y1, int x2, int y2)
+{
+    int dy = y2 - y1;
+    int dx = x2 - x1;
+    double m = (double)dy / dx;
+
+    if (m > 0 && m < 1) {
+
+        if (x1 > x2) {
+            Swap(x1, y1, x2, y2);
+            dy = y2 - y1;
+            dx = x2 - x1;
+        }
+
+        SetPixel(hdc, x1, y1, c);
+
+        int d = dx - (2 * dy);
+        int x = x1;
+        int y = y1;
+
+        while (x < x2) {
+            if (d <= 0) {
+                d += 2 * (dx - dy);
+                x++;
+                y++;
+            }
+            else {
+                d += -2 * dy;
+                x++;
+            }
+            SetPixel(hdc, x, y, c);
+        }
+
+    }
+
+    else if (m > 1) {
+
+        if (y1 > y2) {
+            Swap(x1, y1, x2, y2);
+            dy = y2 = y1;
+            dx = x2 - x1;
+        }
+
+        SetPixel(hdc, x1, y1, c);
+
+        int d = 2 * dx - dy;
+        int x = x1;
+        int y = y1;
+
+        while (y < y2) {
+
+            if (d <= 0) {
+                d += 2 * dx;
+                y++;
+            }
+            else {
+                d += 2 * (dx - dy);
+                x++;
+                y++;
+            }
+            SetPixel(hdc, x, y, c);
+
+        }
+
+    }
+
+    else if(m > -1 && m < 0) {
+
+        if (x1 < x2) {
+            Swap(x1, y1, x2, y2);
+            dy = y2 - y1;
+            dx = x2 - x1;
+        }
+
+        SetPixel(hdc, x1, y1, c);
+
+        int d = dx + (2 * dy);
+        int x = x1;
+        int y = y1;
+
+        while(x > x2) {
+
+            if (d <= 0) {
+                d += 2 * dy;
+                x--;
+            }
+            else {
+                d += 2 * (dx + dy);
+                x--;
+                y++;
+            }
+
+            SetPixel(hdc, x, y, c);
+        }
+    }
+    else {
+
+        if(y1 > y2) {
+            Swap(x1, y1, x2, y2);
+            dy = y2 - y1;
+            dx = x2 - x1;
+        }
+
+        SetPixel(hdc, x1, y1, c);
+
+        int d = (2 * dx) + dy;
+        int x = x1;
+        int y = y1;
+
+        while(y < y2) {
+
+            if(d <= 0) {
+                d += 2 * (dx + dy);
+                x--;
+                y++;
+            }
+            else {
+                d += 2 * dx;
+                y++;
+            }
+
+            SetPixel(hdc, x, y, c);
+        }
+    }
+}
+
 void draw8points(HDC hdc, int xc, int yc, int x, int y)
 {
     SetPixel(hdc, xc + x, yc + y, c);
@@ -969,41 +1165,40 @@ LRESULT CALLBACK WindowProcedure (HWND hwnd, UINT message, WPARAM wParam, LPARAM
                     radius = sqrt(pow((x-xc),2) + pow((y-yc),2));
                     switch(algo)
                     {
+                        case LINEDDA:
+                            LineDDA(hdc, xc, yc, x, y);
+                            break;
+                        case LINEMIDPOINT:
+                            LineMidPoint(hdc, xc, yc, x, y);
+                            break;
+                        case LINEPARAMETRIC:
+                            LineParametric(hdc, xc, yc, x, y);
+                            break;
                         case DirectC:
                             circleDirect(hdc, xc, yc, radius);
                             line = "circleDirect,"+tostring(xc)+','+tostring(yc)+','+tostring(radius)+','+color_tostring(c);
-                            fileContent.push_back(line);
-                            cnt = 0;
+                            fileContent.push_back(line);;
                             break;
-
                         case PolarC:
                             circlePolar(hdc, xc, yc, radius);
                             line = "circlePolar,"+tostring(xc)+','+tostring(yc)+','+tostring(radius)+','+color_tostring(c);
                             fileContent.push_back(line);
-                            cnt = 0;
                             break;
-
                         case ItPolarC:
                             circleIterative(hdc, xc, yc, radius);
                             line = "circleIterative,"+tostring(xc)+','+tostring(yc)+','+tostring(radius)+','+color_tostring(c);
                             fileContent.push_back(line);
-                            cnt = 0;
                             break;
-
                         case MidpointC:
                             midpointCircle(hdc, xc, yc, radius);
                             line = "midpointCircle,"+tostring(xc)+','+tostring(yc)+','+tostring(radius)+','+color_tostring(c);
                             fileContent.push_back(line);
-                            cnt = 0;
                             break;
-
                         case ModifiedMidpointC:
                             modifiedMidpointCircle(hdc, xc, yc, radius);
                             line = "modifiedMidpointCircle,"+tostring(xc)+','+tostring(yc)+','+tostring(radius)+','+color_tostring(c);
                             fileContent.push_back(line);
-                            cnt = 0;
                             break;
-
                         case DIRECTELLIPSE:
                             a = abs(xc - x);
                             b = abs(yc - y);
@@ -1018,7 +1213,6 @@ LRESULT CALLBACK WindowProcedure (HWND hwnd, UINT message, WPARAM wParam, LPARAM
                             polarEllipse(hdc, xc, yc, a, b);
                             line = "polarEllipse,"+tostring(xc)+','+tostring(yc)+','+tostring(a)+','+tostring(b)+','+color_tostring(c);
                             fileContent.push_back(line);
-                            cnt = 0;
                             break;
                         case MIDPOINTELLIPSE:
                             a = abs(xc - x);
@@ -1026,18 +1220,16 @@ LRESULT CALLBACK WindowProcedure (HWND hwnd, UINT message, WPARAM wParam, LPARAM
                             ellipseMidPoint(hdc, xc, yc, a, b);
                             line = "ellipseMidPoint,"+tostring(xc)+','+tostring(yc)+','+tostring(a)+','+tostring(b)+','+color_tostring(c);
                             fileContent.push_back(line);
-                            cnt = 0;
                             break;
                         case LINECLIPPINGRECT:
                             CohenSuth(hdc, xc, yc, x, y, 100,50, 400,200);
                             line = "CohenSuth,"+tostring(xc)+','+tostring(yc)+','+tostring(x)+','+tostring(y)+','+tostring(100)+','+tostring(50)+','+tostring(400)+','+tostring(200);
                             fileContent.push_back(line);
-                            cnt = 0;
                             break;
-
                         default:
                             break;
                     }
+                    cnt = 0;
                 }
                 else if(cnt == 2)
                 {
