@@ -5,12 +5,14 @@
 #endif
 #include <iostream>
 #include <tchar.h>
-#include<math.h>
+#include <math.h>
 #include <windows.h>
 #include <list>
 #include <string>
-#include<sstream>
+#include <sstream>
 #include <fstream>
+#include <vector>
+
 #define GREEN 1
 #define BLACK 2
 #define BLUE 3
@@ -40,6 +42,7 @@
 #define LINEDDA 27
 #define LINEMIDPOINT 28
 #define LINEPARAMETRIC 29
+#define CARDINALSPLINE 30
 
 using namespace std;
 
@@ -95,12 +98,12 @@ HMENU hmenu;
 void printColorOptions()
 {
     int color;
-    cout<<"color options:"<<endl;
-    cout<<"1-red"<<endl;
-    cout<<"2-yellow"<<endl;
-    cout<<"3-black"<<endl;
-    cout<<"4-blue"<<endl;
-    cout<<"5-green"<<endl;
+    cout<<"Enter a color to begin drawing with:"<<endl;
+    cout<<"1- Red"<<endl;
+    cout<<"2- Yellow"<<endl;
+    cout<<"3- Black"<<endl;
+    cout<<"4- Blue"<<endl;
+    cout<<"5- Green"<<endl;
     cin>>color;
     switch(color)
     {
@@ -178,9 +181,10 @@ int WINAPI WinMain (HINSTANCE hThisInstance,
            NULL                 /* No Window Creation data */
            );
 
+    printColorOptions();
+
     /* Make the window visible on the screen */
     ShowWindow (hwnd, nCmdShow);
-    printColorOptions();
     /* Run the message loop. It will run until GetMessage() returns 0 */
     while (GetMessage (&messages, NULL, 0, 0))
     {
@@ -243,6 +247,8 @@ void menus(HWND hwnd)
     AppendMenu(circleClippingMenu, MF_STRING, POINTCLIPPINCIRCLE, _T("Point"));
     AppendMenu(circleClippingMenu, MF_STRING, LINECLIPPINCIRCLE, _T("Line"));
 
+    HMENU Cardinal = CreateMenu();
+
     HMENU fillingMenu = CreateMenu();
     AppendMenu(fillingMenu, MF_STRING, LINEFILLING, _T("Line"));
     AppendMenu(fillingMenu, MF_STRING, CIRCLEFILLING, _T("Circle"));
@@ -258,6 +264,7 @@ void menus(HWND hwnd)
     AppendMenu(hmenu, MF_POPUP, (UINT_PTR) circleMenu, _T("Circle"));
     AppendMenu(hmenu, MF_POPUP, (UINT_PTR) ellipseMenu, _T("Ellipse"));
     AppendMenu(hmenu, MF_POPUP, (UINT_PTR) clippingMenu, _T("Clipping"));
+    AppendMenu(hmenu, MF_STRING, CARDINALSPLINE, "Cardinal Spline");
     AppendMenu(hmenu, MF_POPUP, (UINT_PTR) fillingMenu, _T("Filling Circle"));
     AppendMenu(hmenu, MF_POPUP, (UINT_PTR) fillingPolygonMenu, _T("Filling Polygon"));
     SetMenu(hwnd, hmenu);
@@ -863,29 +870,75 @@ void circleFillingLine(HDC hdc, int x1, int y1, int xc, int yc, int r)
         drawQuarterByLines(hdc, xc, yc, x, y, q);
     }
 }
+
+struct Point {
+    int x, y;
+    Point(): x(0), y(0) {}
+    Point(int x, int y) : x(x), y(y) {}
+};
+
+void DrawHermiteCurve(HDC hdc, Point& p1, Point& t1, Point& p2, Point& t2)
+{
+    int a0 = p1.x,
+        a1 = t1.x,
+        a2 = -3 * p1.x - 2 * t1.x + 3 * p2.x - t2.x,
+        a3 = 2 * p1.x + t1.x - 2 * p2.x + t2.x;
+
+    int b0 = p1.y,
+        b1 = t1.y,
+        b2 = -3 * p1.y - 2 * t1.y + 3 * p2.y - t2.y,
+        b3 = 2 * p1.y + t1.y - 2 * p2.y + t2.y;
+
+    for (double t = 0; t <= 1; t += 0.001)
+    {
+        double tSquare = t * t,
+            tCube = tSquare * t;
+
+        double x = a0 + a1 * t + a2 * tSquare + a3 * tCube;
+        double y = b0 + b1 * t + b2 * tSquare + b3 * tCube;
+
+        SetPixel(hdc, x, y, c);
+    }
+}
+
+void CardinalSpline(HDC hdc, vector<Point> P, int n, int c)
+{
+	Point* T = new Point[n];
+
+	Point t;
+
+	for (int i = 1; i < n - 1; i++) {
+
+		t.x = c / 2 * (P[i + 1].x - P[i - 1].x);
+		t.y = c / 2 * (P[i + 1].y - P[i - 1].y);
+		T[i] = t;
+
+	}
+
+	t.x = c / 2 * (P[1].x - P[0].x);
+	t.y = c / 2 * (P[1].y - P[0].y);
+
+	T[0] = t;
+
+	t.x = c / 2 * (P[n - 1].x - P[n - 2].x);
+	t.y = c / 2 * (P[n - 1].y - P[n - 2].y);
+
+	T[n - 1] = t;
+
+	for (int i = 0; i < n - 1; i++) {
+		DrawHermiteCurve(hdc, P[i], T[i], P[i + 1], T[i + 1]);
+	}
+
+	delete[] T;
+}
+
 // convex polygon filling
 
 typedef struct
 {
     int xLeft, xRight;
 } edgeTable[800];
-struct Point
-{
-    int x , y;
 
-    Point()
-    {
-        x = 0;
-        y = 0;
-    }
-    Point(int x, int y)
-    {
-        this->x = x;
-        this->y = y;
-    }
-
-
-};
 void initEdgeTable(edgeTable table)
 {
     for (int i = 0; i < 800; i++)
@@ -1048,12 +1101,19 @@ int cnt = 0, xc, yc, x, y, radius,x1,y_1, x2,y2, a, b;
 LRESULT CALLBACK WindowProcedure (HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
     HDC hdc = GetDC(hwnd);
+    static vector<Point> cardinalVector;
+	static int cardinalCtr = 0;
     switch (message)                  /* handle the messages */
     {
-
-
         case WM_RBUTTONDOWN:
-            if(cnt == 0)
+            if (algo == CARDINALSPLINE) {
+                cardinalVector.push_back(Point(LOWORD(lParam), HIWORD(lParam)));
+                cardinalCtr++;
+                CardinalSpline(hdc, cardinalVector, cardinalCtr, 2);
+                cardinalCtr = 0;
+                cardinalVector.clear();
+            }
+            else if(cnt == 0)
             {
                 x = LOWORD(lParam);
                 y = HIWORD(lParam);
@@ -1103,7 +1163,11 @@ LRESULT CALLBACK WindowProcedure (HWND hwnd, UINT message, WPARAM wParam, LPARAM
             break;
 
         case WM_LBUTTONDOWN:
-            if(cnt == 0)
+            if (algo == CARDINALSPLINE) {
+                cardinalVector.push_back(Point(LOWORD(lParam), HIWORD(lParam)));
+                cardinalCtr++;
+            }
+            else if(cnt == 0)
                 {
                     xc = LOWORD(lParam);
                     yc = HIWORD(lParam);
