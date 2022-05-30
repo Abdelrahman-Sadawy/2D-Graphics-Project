@@ -12,6 +12,7 @@
 #include <sstream>
 #include <fstream>
 #include <vector>
+#include <stack>
 
 #define GREEN 1
 #define BLACK 2
@@ -43,6 +44,8 @@
 #define LINEMIDPOINT 28
 #define LINEPARAMETRIC 29
 #define CARDINALSPLINE 30
+#define FLOODRECURSIVE 31
+#define FLOODNONRECURSIVE 32
 
 using namespace std;
 
@@ -93,6 +96,7 @@ string color_tostring(COLORREF c)
 //---------------------------
 int algo = 0;
 COLORREF c;
+COLORREF tempC;
 LPCSTR mouse = IDC_ARROW;
 HMENU hmenu;
 void printColorOptions()
@@ -257,6 +261,10 @@ void menus(HWND hwnd)
     AppendMenu(fillingPolygonMenu, MF_STRING, CONVEX, _T("Convex"));
     AppendMenu(fillingPolygonMenu, MF_STRING, NONCONVEX, _T("Non-convex"));
 
+    HMENU FloodFill = CreateMenu();
+    AppendMenu(FloodFill, MF_STRING, FLOODRECURSIVE, _T("Recursive"));
+    AppendMenu(FloodFill, MF_STRING, FLOODNONRECURSIVE, _T("Non Recursive"));
+
     AppendMenu(hmenu, MF_STRING, SAVE, _T("Save"));
     AppendMenu(hmenu, MF_POPUP, (UINT_PTR) colorMenu, _T("Color"));
     AppendMenu(hmenu, MF_POPUP, (UINT_PTR) mouseMenu, _T("Mouse"));
@@ -267,6 +275,7 @@ void menus(HWND hwnd)
     AppendMenu(hmenu, MF_STRING, CARDINALSPLINE, "Cardinal Spline");
     AppendMenu(hmenu, MF_POPUP, (UINT_PTR) fillingMenu, _T("Filling Circle"));
     AppendMenu(hmenu, MF_POPUP, (UINT_PTR) fillingPolygonMenu, _T("Filling Polygon"));
+    AppendMenu(hmenu, MF_POPUP, (UINT_PTR)FloodFill, _T("Flood Fill"));
     SetMenu(hwnd, hmenu);
 }
 int Round(double x )
@@ -932,6 +941,36 @@ void CardinalSpline(HDC hdc, vector<Point> P, int n, int c)
 	delete[] T;
 }
 
+
+void FloodFillRec(HDC hdc, int x, int y, COLORREF borderColor, COLORREF fillingColor)
+{
+    COLORREF color = GetPixel(hdc, x, y);
+    if (color == borderColor || color == fillingColor) return;
+    SetPixel(hdc, x, y, fillingColor);
+
+    FloodFillRec(hdc, x + 1, y, borderColor, fillingColor);
+    FloodFillRec(hdc, x - 1, y, borderColor, fillingColor);
+    FloodFillRec(hdc, x, y + 1, borderColor, fillingColor);
+    FloodFillRec(hdc, x, y - 1, borderColor, fillingColor);
+}
+void FLoodFillNonRec(HDC hdc, int x, int y, COLORREF borderColor, COLORREF fillingColor)
+{
+    stack<Point> s;
+    s.push(Point(x, y));
+    while (!s.empty()) {
+        Point p = s.top();
+        s.pop();
+        COLORREF color = GetPixel(hdc, p.x, p.y);
+        if (color == borderColor || color == fillingColor)
+            continue;
+        SetPixel(hdc, p.x, p.y, fillingColor);
+        s.push(Point(p.x + 1, p.y));
+        s.push(Point(p.x - 1, p.y));
+        s.push(Point(p.x, p.y + 1));
+        s.push(Point(p.x, p.y - 1));
+    }
+}
+
 // convex polygon filling
 
 typedef struct
@@ -1113,11 +1152,17 @@ LRESULT CALLBACK WindowProcedure (HWND hwnd, UINT message, WPARAM wParam, LPARAM
                 cardinalCtr = 0;
                 cardinalVector.clear();
             }
-            else if(cnt == 0)
+            if(cnt == 0)
             {
                 x = LOWORD(lParam);
                 y = HIWORD(lParam);
                 cnt++;
+                if (algo == FLOODRECURSIVE) {
+                    FloodFillRec(hdc, x, y, tempC, c);
+                }
+                else if (algo == FLOODNONRECURSIVE) {
+                    FLoodFillNonRec(hdc, x, y, tempC, c);
+                }
                 if(algo == POINTCLIPPINCIRCLE)
                 {
                     pointClippingCircle(hdc, x,  y,  xc,  yc,  radius);
@@ -1249,6 +1294,7 @@ LRESULT CALLBACK WindowProcedure (HWND hwnd, UINT message, WPARAM wParam, LPARAM
                         default:
                             break;
                     }
+                    tempC = c;
                     cnt = 0;
                 }
                 else if(cnt == 2)
