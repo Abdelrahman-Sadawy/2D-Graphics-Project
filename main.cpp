@@ -572,53 +572,6 @@ void Swap(int& x,int& y)
     x=y;
     y=tmp;
 }
-void drawLineDDA (HDC hdc, int x1, int y1, int x2, int y2)
-{
-    int dx = x2 - x1;
-    int dy = y2 - y1;
-
-    if(abs(dy) <= abs(dx))
-    {
-        if(x1 > x2)
-        {
-            Swap(x1, x2);
-            Swap(y1, y2);
-        }
-
-        int x = x1;
-        double y = y1;
-        double slope = (double) dy / dx;
-
-        SetPixel(hdc, x1, y1, c);
-
-        while (x < x2)
-        {
-            x++;
-            y += slope;
-            SetPixel(hdc, x, Round(y), c);
-        }
-    }
-    else
-    {
-        if(y1 > y2)
-        {
-            Swap(x1, x2);
-            Swap(y1, y2);
-        }
-        double x = x1;
-        int y = y1;
-        double slope = (double) dx / dy;
-
-        SetPixel(hdc, x1, y1, c);
-
-        while (y < y2)
-        {
-            y++;
-            x += slope;
-            SetPixel(hdc, Round(x), y, c);
-        }
-    }
-}
 
 void lineClippingCircle(HDC hdc, int x1, int y1, int x2, int y2, int xc, int yc, int r)
 {
@@ -640,16 +593,16 @@ void lineClippingCircle(HDC hdc, int x1, int y1, int x2, int y2, int xc, int yc,
 	d2 = sqrt((x2 - xc)*(x2 - xc) + (y2 - yc)*(y2 - yc));
 
 	if (d1 < r && d2 < r) {
-		drawLineDDA(hdc, x1, y1, x2, y2);
+		LineDDA(hdc, x1, y1, x2, y2);
 	}
 	else if (d1 < r) {
-		drawLineDDA(hdc, x1, y1, xInter2, yInter2);
+		LineDDA(hdc, x1, y1, xInter2, yInter2);
 	}
 	else if (d2 < r) {
-		drawLineDDA(hdc, xInter1, yInter1, x2, y2);
+		LineDDA(hdc, xInter1, yInter1, x2, y2);
 	}
 	else {
-		drawLineDDA(hdc, xInter1, yInter1, xInter2, yInter2);
+		LineDDA(hdc, xInter1, yInter1, xInter2, yInter2);
 	}
 
 }
@@ -770,28 +723,28 @@ void drawQuarterByLines(HDC hdc, int xc, int yc, int x, int y, int quarter)
 {
     if(quarter == 1)
     {
-        drawLineDDA(hdc, xc - x, yc - y, xc, yc);
-        drawLineDDA(hdc, xc - y, yc - x, xc, yc);
+        LineDDA(hdc, xc - x, yc - y, xc, yc);
+        LineDDA(hdc, xc - y, yc - x, xc, yc);
     }
 
      else if(quarter == 2)
      {
 
-        drawLineDDA(hdc, xc + x, yc - y, xc, yc);
-        drawLineDDA(hdc, xc + y, yc - x, xc, yc);
+        LineDDA(hdc, xc + x, yc - y, xc, yc);
+        LineDDA(hdc, xc + y, yc - x, xc, yc);
      }
 
     else if(quarter == 3)
     {
-        drawLineDDA(hdc, xc + x, yc + y, xc, yc);
-        drawLineDDA(hdc, xc + y, yc + x, xc, yc);
+        LineDDA(hdc, xc + x, yc + y, xc, yc);
+        LineDDA(hdc, xc + y, yc + x, xc, yc);
     }
 
 
     else if(quarter == 4)
     {
-        drawLineDDA(hdc, xc - x, yc + y, xc, yc);
-        drawLineDDA(hdc, xc - y, yc + x, xc, yc);
+        LineDDA(hdc, xc - x, yc + y, xc, yc);
+        LineDDA(hdc, xc - y, yc + x, xc, yc);
     }
 
 }
@@ -991,7 +944,7 @@ void  table2Screen (HDC hdc, edgeTable table)
     {
         if (table[i].xLeft < table[i].xRight)
         {
-            drawLineDDA(hdc, table[i].xLeft, i, table[i].xRight, i);
+            LineDDA(hdc, table[i].xLeft, i, table[i].xRight, i);
         }
     }
 }
@@ -1086,7 +1039,7 @@ void CohenSuth(HDC hdc,int xs,int ys,int xe,int ye,int xleft,int ytop,int xright
     }
     if(!out1.All && !out2.All)
     {
-        drawLineDDA(hdc,x1,y1,x2,y2);
+        LineDDA(hdc,x1,y1,x2,y2);
     }
 }
 /*  This function is called by the Windows function DispatchMessage()  */
@@ -1167,11 +1120,14 @@ LRESULT CALLBACK WindowProcedure (HWND hwnd, UINT message, WPARAM wParam, LPARAM
                     {
                         case LINEDDA:
                             LineDDA(hdc, xc, yc, x, y);
+                            line = "LineDDA,"+tostring(xc)+','+tostring(yc)+','+tostring(x)+tostring(y)+','+color_tostring(c);
                             break;
                         case LINEMIDPOINT:
                             LineMidPoint(hdc, xc, yc, x, y);
+                            line = "LineMidpoint,"+tostring(xc)+','+tostring(yc)+','+tostring(x)+tostring(y)+','+color_tostring(c);
                             break;
                         case LINEPARAMETRIC:
+                            line = "LineParametric,"+tostring(xc)+','+tostring(yc)+','+tostring(x)+tostring(y)+','+color_tostring(c);
                             LineParametric(hdc, xc, yc, x, y);
                             break;
                         case DirectC:
