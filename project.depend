@@ -1,0 +1,7 @@
+# depslib dependency file v1.0
+1653875529 source:e:\salma\project\main.cpp
+	<iostream>
+	<tchar.h>
+	<math.h>
+	<windows.h>
+
