@@ -1082,7 +1082,82 @@ void FLoodFillNonRec(HDC hdc, int x, int y)
         s.push(Point(p.x, p.y - 1));
     }
 }
+typedef struct
+{
+    int xLeft, xRight;
+} edgeTable[800];
 
+void initEdgeTable(edgeTable table)
+{
+    for (int i = 0; i < 800; i++)
+    {
+        table[i].xLeft = INT_MAX;
+        table[i].xRight = -INT_MAX;
+
+    }
+}
+
+void edge2Table (Point p1, Point p2, edgeTable table)
+{
+    if (p1.y == p2.y)
+        return;
+    if (p1.y > p2.y)
+    {
+        Swap(p1.x, p2.x);
+        Swap(p1.y, p2.y);
+    }
+
+    double minv = (p2.x - p1.x) / (double) (p2.y - p1.y);
+    double x = p1.x;
+    int y = p1.y;
+
+    while (y < p2.y)
+    {
+        if (x < table[y].xLeft)
+        {
+            table[y].xLeft = (int) ceil(x);
+        }
+        if (x > table[y].xRight)
+        {
+            table[y].xRight = (int) floor(x);
+        }
+        y++;
+        x += minv;
+    }
+
+}
+
+void polygon2Table (vector<Point> points, int n, edgeTable table)
+{
+    Point p1 = points[n-1];
+
+    for (int i = 0; i < n; i++)
+    {
+        Point p2 = points[i];
+        edge2Table(p1, p2, table);
+        p1 = p2;
+    }
+}
+
+void  table2Screen (HDC hdc, edgeTable table)
+{
+    for (int i = 0; i < 800; i++)
+    {
+        if (table[i].xLeft < table[i].xRight)
+        {
+            LineDDA(hdc, table[i].xLeft, i, table[i].xRight, i);
+        }
+    }
+}
+
+void fillPolygon (HDC hdc, vector<Point> points, int n)
+{
+    edgeTable table;
+    initEdgeTable(table);
+    polygon2Table(points, n, table);
+    table2Screen(hdc, table);
+
+}
 //Non convex polygon filling
 struct EdgeRec
 {
@@ -1498,7 +1573,7 @@ void callFunc(string* functionData, HDC hdc)
             Point p(toInt(functionData[i]),toInt(functionData[i+1]));
             vect.push_back(p);
         }
-        //fillPolygon(hdc, vect, a);
+        fillPolygon(hdc, vect, a);
     }
     else if (funName == "NonConvexPolygonFill")
     {
@@ -1510,7 +1585,7 @@ void callFunc(string* functionData, HDC hdc)
         }
         NonConvexPolygonFill(hdc,vect, a);
     }
-    else if (funName == "NonConvexPolygonFill")
+    else if (funName == "PolygonClip")
     {
         vector<Point> vect;
         for(int i=6; i<6+(2*a);i+=2)
@@ -1573,7 +1648,7 @@ LRESULT CALLBACK WindowProcedure (HWND hwnd, UINT message, WPARAM wParam, LPARAM
             else if (algo == CONVEX) {
                 convexVector.push_back(Point(LOWORD(lParam), HIWORD(lParam)));
                 convexCtr++;
-                //fillPolygon(hdc, convexVector, convexCtr);
+                fillPolygon(hdc, convexVector, convexCtr);
                 line = concatenateString("fillPolygon",1,convexCtr);
                 for(std::size_t i = 0; i < convexVector.size(); ++i)
                 {

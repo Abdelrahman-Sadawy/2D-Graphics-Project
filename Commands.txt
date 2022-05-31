@@ -1,2 +1,2 @@
-circleDirect,248,103,30,black
-FLoodFillNonRec,244,103,black,yellow
+Rectangle,100,200,400,50,blue
+PolygonClip,7,100,50,400,200,142,125,213,80,190,152,294,166,296,80,212,78,214,83,blue
