@@ -47,6 +47,11 @@
 #define FLOODRECURSIVE 31
 #define FLOODNONRECURSIVE 32
 #define LOAD 33
+#define LINECLIPPINGSQUARE 34
+#define POINTCLIPPINGSQUARE 35
+#define RECTBEZIER 36
+#define SQUAREHERMITE 37
+#define CLEAR 38
 using namespace std;
 
 int algo = 0;
@@ -334,8 +339,16 @@ void menus(HWND hwnd)
     AppendMenu(FloodFill, MF_STRING, FLOODRECURSIVE, _T("Recursive"));
     AppendMenu(FloodFill, MF_STRING, FLOODNONRECURSIVE, _T("Non Recursive"));
 
+    AppendMenu(squareClippingMenu, MF_STRING, POINTCLIPPINGSQUARE, _T("Point"));
+    AppendMenu(squareClippingMenu, MF_STRING, LINECLIPPINGSQUARE, _T("Line"));
+
+    HMENU curveFillingMenu = CreateMenu();
+    AppendMenu(curveFillingMenu, MF_STRING, RECTBEZIER, _T("Rectangle"));
+    AppendMenu(curveFillingMenu, MF_STRING, SQUAREHERMITE, _T("Square"));
+
     AppendMenu(hmenu, MF_STRING, SAVE, _T("Save"));
     AppendMenu(hmenu, MF_STRING, LOAD, _T("load"));
+    AppendMenu(hmenu, MF_STRING, CLEAR, _T("Clear"));
     AppendMenu(hmenu, MF_POPUP, (UINT_PTR) colorMenu, _T("Color"));
     AppendMenu(hmenu, MF_POPUP, (UINT_PTR) mouseMenu, _T("Mouse"));
     AppendMenu(hmenu, MF_POPUP, (UINT_PTR)LineMenu, _T("Line"));
@@ -346,6 +359,7 @@ void menus(HWND hwnd)
     AppendMenu(hmenu, MF_POPUP, (UINT_PTR) fillingMenu, _T("Filling Circle"));
     AppendMenu(hmenu, MF_POPUP, (UINT_PTR) fillingPolygonMenu, _T("Filling Polygon"));
     AppendMenu(hmenu, MF_POPUP, (UINT_PTR)FloodFill, _T("Flood Fill"));
+    AppendMenu(hmenu, MF_POPUP, (UINT_PTR) curveFillingMenu, _T("Curve Filling"));
     SetMenu(hwnd, hmenu);
 }
 int Round(double x )
@@ -1047,7 +1061,7 @@ typedef struct
 {
     int xLeft, xRight;
 } edgeTable[800];
-/*
+
 void initEdgeTable(edgeTable table)
 {
     for (int i = 0; i < 800; i++)
@@ -1088,7 +1102,7 @@ void edge2Table (Point p1, Point p2, edgeTable table)
 
 }
 
-void polygon2Table (Point points[], int n, edgeTable table)
+void polygon2Table (vector<Point> points, int n, edgeTable table)
 {
     Point p1 = points[n-1];
 
@@ -1111,14 +1125,14 @@ void  table2Screen (HDC hdc, edgeTable table)
     }
 }
 
-void fillPolygon (HDC hdc, Point points[], int n)
+void fillPolygon (HDC hdc, vector<Point> points, int n)
 {
     edgeTable table;
     initEdgeTable(table);
     polygon2Table(points, n, table);
     table2Screen(hdc, table);
 
-}*/
+}
 //Rectangle clipping
 void PointClippingRect(HDC hdc, int x, int y, int xleft, int ytop, int xright, int ybottom)
 {
@@ -1203,6 +1217,69 @@ void CohenSuth(HDC hdc,int xs,int ys,int xe,int ye,int xleft,int ytop,int xright
     {
         LineDDA(hdc,x1,y1,x2,y2);
     }
+}
+
+//////////////horizontal filling
+void DrawModifiedHermiteCurve(HDC hdc, Point& p1, Point& t1, Point& p2, Point& t2, int xl, int yt, int xr, int yb)
+{
+    int a0 = p1.x,
+        a1 = t1.x,
+        a2 = -3 * p1.x - 2 * t1.x + 3 * p2.x - t2.x,
+        a3 = 2 * p1.x + t1.x - 2 * p2.x + t2.x;
+
+    int b0 = p1.y,
+        b1 = t1.y,
+        b2 = -3 * p1.y - 2 * t1.y + 3 * p2.y - t2.y,
+        b3 = 2 * p1.y + t1.y - 2 * p2.y + t2.y;
+
+    for (double t = 0; t <= 1; t += 0.001)
+    {
+        double tSquare = t * t,
+            tCube = tSquare * t;
+
+        double x = a0 + a1 * t + a2 * tSquare + a3 * tCube;
+        double y = b0 + b1 * t + b2 * tSquare + b3 * tCube;
+
+        if(Round(x) > xl && Round(x) < xr-1 && Round(y) > yt && Round(y) < yb-1)
+            SetPixel(hdc, Round(x), Round(y), c);
+
+    }
+}
+
+void DrawBezierCurve(HDC hdc, Point p0, Point p1, Point p2, Point p3, int xl, int yt, int xr, int yb) {
+	Point t1, t2;
+	t1.x = 3 * (p1.x - p0.x);
+	t1.y = 3 * (p1.y - p0.y);
+	t2.x = 3 * (p3.x - p2.x);
+	t2.y = 3 * (p3.y - p2.y);
+	DrawModifiedHermiteCurve(hdc, p0, t1, p3, t2, xl, yt, xr, yb);
+}
+
+
+void fillHorizontal (HDC hdc, int xl, int yt, int xr, int yb)
+{
+    for(int y = yt+1; y < yb ; y++)
+    {
+        Point p1(xl+1, y);
+        Point p2(xr-1, y);
+        Point t1(xl+50, y-40);
+        Point t2(xr+10, y-50);
+        DrawBezierCurve(hdc, p1, t1, p2, t2, xl, yt, xr, yb);
+    }
+
+}
+/////////////////////////////Vertical Filling
+void fillVertical (HDC hdc, int xl, int yt, int xr, int yb)
+{
+    for(int x = xl+1; x < xr ; x++)
+    {
+        Point p1(x, yt+1);
+        Point p2(x, yb-1);
+        Point t1(x+50, yt+40);
+        Point t2(x+10, yb-50);
+        DrawModifiedHermiteCurve(hdc, p1, t1, p2, t2, xl, yt, xr, yb);
+    }
+
 }
 /*  This function is called by the Windows function DispatchMessage()  */
 
@@ -1311,6 +1388,8 @@ LRESULT CALLBACK WindowProcedure (HWND hwnd, UINT message, WPARAM wParam, LPARAM
     HDC hdc = GetDC(hwnd);
     static vector<Point> cardinalVector;
 	static int cardinalCtr = 0;
+	static vector<Point> convexVector;
+	static int convexCtr = 0;
     switch (message)                  /* handle the messages */
     {
         case WM_RBUTTONDOWN:
@@ -1328,6 +1407,13 @@ LRESULT CALLBACK WindowProcedure (HWND hwnd, UINT message, WPARAM wParam, LPARAM
                 fileContent.push_back(line);
                 cardinalCtr = 0;
                 cardinalVector.clear();
+            }
+            else if (algo == CONVEX) {
+                convexVector.push_back(Point(LOWORD(lParam), HIWORD(lParam)));
+                convexCtr++;
+                fillPolygon(hdc, convexVector, convexCtr);
+                convexCtr = 0;
+                convexVector.clear();
             }
             if(cnt == 0)
             {
@@ -1372,6 +1458,23 @@ LRESULT CALLBACK WindowProcedure (HWND hwnd, UINT message, WPARAM wParam, LPARAM
                     fileContent.push_back(line);
                     cnt = 0;
                 }
+                else if(algo == POINTCLIPPINGSQUARE)
+                {
+                    //(hdc,150, 100, 350, 300);
+                    PointClippingRect(hdc, x, y, 150,100, 350,300);
+                    cnt = 0;
+                }
+                else if(algo == RECTBEZIER)
+                {
+                    fillHorizontal(hdc, 100,50, 400,200);
+                    cnt = 0;
+                }
+                else if(algo == SQUAREHERMITE)
+                {
+                    fillVertical(hdc, 150,100, 350,300);
+                    cnt = 0;
+                }
+
 
             }
             else
@@ -1392,6 +1495,10 @@ LRESULT CALLBACK WindowProcedure (HWND hwnd, UINT message, WPARAM wParam, LPARAM
             if (algo == CARDINALSPLINE) {
                 cardinalVector.push_back(Point(LOWORD(lParam), HIWORD(lParam)));
                 cardinalCtr++;
+            }
+            else if (algo == CONVEX) {
+                convexVector.push_back(Point(LOWORD(lParam), HIWORD(lParam)));
+                convexCtr++;
             }
             else if(cnt == 0)
                 {
@@ -1475,45 +1582,18 @@ LRESULT CALLBACK WindowProcedure (HWND hwnd, UINT message, WPARAM wParam, LPARAM
                             line = concatenateString("CohenSuth", 8, xc, yc, x, y, 100, 50, 400, 200) + tostring(c);
                             fileContent.push_back(line);
                             break;
+                        case LINECLIPPINGSQUARE:
+                            CohenSuth(hdc, xc, yc, x, y, 150,100, 350,300);
+                            cnt = 0;
+                            break;
                         default:
                             break;
                     }
                     tempC = c;
                     cnt = 0;
                 }
-                else if(cnt == 2)
-                {
-                    x1 = LOWORD(lParam);
-                    y_1 = HIWORD(lParam);
-                    cnt++;
-                }
-                else if(cnt == 3)
-                {
-                    x2 = LOWORD(lParam);
-                    y2 = HIWORD(lParam);
-                    switch(algo)
-                    {
-                        case CONVEX:
-                        {
-                            Point points [] = {Point(xc, yc), Point(x, y), Point(x1, y_1), Point(x2, y2)};
-                            //fillPolygon(hdc, points, 4);
-                            line = concatenateString("CardinalSpline",2,cardinalCtr,2);
-                            for(std::size_t i = 0; i < cardinalVector.size(); ++i)
-                            {
-                                line+=tostring(cardinalVector[i].x);
-                                line= line + ',' + tostring(cardinalVector[i].y);
-                                if(i!=cardinalVector.size()-1)
-                                    line+=',';
-                            }
-                            fileContent.push_back(line);
-                            break;
-                        }
 
-                        default:
-                            break;
-                    }
-                    cnt = 0;
-                }
+
                 break;
 
             case WM_CREATE:
@@ -1524,6 +1604,9 @@ LRESULT CALLBACK WindowProcedure (HWND hwnd, UINT message, WPARAM wParam, LPARAM
                 cnt = 0;
                 switch(LOWORD(wParam))
                 {
+                    case CLEAR:
+                        InvalidateRect(hwnd, NULL, true);
+                        break;
                     case POINTCLIPPINGRECT:
                         Rectangle(hdc, 100,200, 400,50);
                         algo = POINTCLIPPINGRECT;
@@ -1532,6 +1615,25 @@ LRESULT CALLBACK WindowProcedure (HWND hwnd, UINT message, WPARAM wParam, LPARAM
                     case LINECLIPPINGRECT:
                         Rectangle(hdc, 100,200, 400,50);
                         algo = LINECLIPPINGRECT;
+                        break;
+                    case LINECLIPPINGSQUARE:
+                        Rectangle(hdc,150, 100, 350, 300);
+                        algo = LINECLIPPINGSQUARE;
+                        break;
+
+                    case POINTCLIPPINGSQUARE:
+                        Rectangle(hdc,150, 100, 350, 300);
+                        algo = POINTCLIPPINGSQUARE;
+                        break;
+
+                    case RECTBEZIER:
+                        Rectangle(hdc, 100,200, 400,50);
+                        algo = RECTBEZIER;
+                        break;
+
+                    case SQUAREHERMITE:
+                        Rectangle(hdc,150, 100, 350, 300);
+                        algo = SQUAREHERMITE;
                         break;
 
                     case RED:
