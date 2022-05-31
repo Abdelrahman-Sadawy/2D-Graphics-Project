@@ -130,10 +130,12 @@ string* split (string str, char seperator)
         }
         i++;
     }
+    for(int i=currIndex; i<max; i++)
+         strings[i] = "";
     return strings;
 }
 
-void stringToColor(string color)
+void stringToColor(string color, COLORREF &c)
 {
 
     if(color == "red")
@@ -160,41 +162,7 @@ int toInt(string str)
 
     return num;
 }
-void LineDDA(HDC hdc, int x1, int y1, int x2, int y2);
-void callFunc(string* functionData, HDC hdc)
-{
-    string funName = functionData[0];
 
-    if(funName=="LineDDA")  //LineDDA(hdc, xc, yc, x, y)
-    {
-        stringToColor(functionData[5]);
-        //std::copy(a + src_begin_index,a + src_begin_index + elements_to_copy,b + dest_begin_index);
-        //string* arr = new int[4];
-        //copy(functionData+1, functionData+5,arr);
-        LineDDA(hdc, toInt(functionData[1]), toInt(functionData[2]), toInt(functionData[3]), toInt(functionData[4]));
-    }
-
-
-
-
-}
-void load(HDC hdc)
-{
-    string myText;
-
-    char seperator = ',';
-
-    ifstream MyReadFile("Commands.txt");
-
-    while (getline (MyReadFile, myText)) {
-
-        string* functionData = split(myText,seperator);
-
-        callFunc(functionData, hdc);
-    }
-
-    MyReadFile.close();
-}
 
 
 //---------------------------
@@ -1237,6 +1205,105 @@ void CohenSuth(HDC hdc,int xs,int ys,int xe,int ye,int xleft,int ytop,int xright
 }
 /*  This function is called by the Windows function DispatchMessage()  */
 
+
+
+//---------------------------------------------------
+void callFunc(string* functionData, HDC hdc)
+{
+    string funName = functionData[0];
+
+    int ctr = 0;
+    for(int i=0;i<max;i++)
+        if(functionData[i]!="")
+            ctr++;
+    stringToColor(functionData[ctr-1], c);
+
+    int a = toInt(functionData[1]);
+    int b = toInt(functionData[2]);
+    int c = toInt(functionData[3]);
+    int d = toInt(functionData[4]);
+    int e = toInt(functionData[5]);
+    int f = toInt(functionData[6]);
+    int g = toInt(functionData[7]);
+    int h = toInt(functionData[8]);
+
+    if(funName=="LineDDA")  //LineDDA(hdc, xc, yc, x, y)
+        LineDDA(hdc, a, b, c, d);
+    else if(funName=="FloodFillRec") //FloodFillRec(hdc, x, y, tempC, c);
+    {
+        stringToColor(functionData[3], tempC);
+        //stringToColor(functionData[4], c);
+        FloodFillRec(hdc, a, b, tempC, c);
+    }
+    else if(funName=="FLoodFillNonRec")
+    {
+        stringToColor(functionData[3], tempC);
+        //stringToColor(functionData[4], c);
+        FLoodFillNonRec(hdc, a, b, tempC, c);
+    }
+    else if(funName=="pointClippingCircle")
+        pointClippingCircle(hdc, a, b, c, d, e);
+    else if(funName=="PointClippingRect")
+        PointClippingRect(hdc, a, b, c, d, e, g);
+    else if(funName=="circleFillingLine")
+        circleFillingLine(hdc, a, b, c, d, e);
+    else if(funName=="circleFillingCircle")
+        circleFillingCircle(hdc, a, b, c, d, e);
+    else if(funName=="lineClippingCircle")
+        lineClippingCircle(hdc, a, b, c, d, e, f, g);
+    else if(funName=="LineMidPoint")
+        LineMidPoint(hdc, a, b, c, d);
+    else if(funName=="LineParametric")
+        LineParametric(hdc, a, b, c, d);
+    else if(funName=="circleDirect")
+        circleDirect(hdc, a, b, c);
+    else if(funName=="circlePolar")
+        circlePolar(hdc, a, b, c);
+    else if(funName=="circleIterative")
+        circleIterative(hdc, a, b, c);
+    else if(funName=="midpointCircle")
+        midpointCircle(hdc, a, b, c);
+    else if(funName=="modifiedMidpointCircle")
+        modifiedMidpointCircle(hdc, a, b, c);
+    else if(funName=="directEllipse")
+        directEllipse(hdc, a, b, c, d);
+    else if(funName=="polarEllipse")
+        polarEllipse(hdc, a, b, c, d);
+    else if(funName=="ellipseMidPoint")
+        ellipseMidPoint(hdc, a, b, c, d);
+    else if(funName=="CohenSuth")
+        CohenSuth(hdc, a, b, c, d, e, f, g, h);
+    else if(funName=="CardinalSpline")
+    {
+        vector<Point> vect;
+        for(int i=3; i<i+(2*a);i+=2)
+        {
+            Point p(toInt(functionData[i]),toInt(functionData[i+1]));
+            vect.push_back(p);
+        }
+        CardinalSpline(hdc, vect, a, b);
+    }
+
+}
+void load(HDC hdc)
+{
+    string myText;
+
+    char seperator = ',';
+
+    ifstream MyReadFile("Commands.txt");
+
+    while (getline (MyReadFile, myText)) {
+
+        string* functionData = split(myText,seperator);
+
+        callFunc(functionData, hdc);
+    }
+
+    MyReadFile.close();
+}
+//-------------------------------------------------
+
 int cnt = 0, xc, yc, x, y, radius,x1,y_1, x2,y2, a, b;
 LRESULT CALLBACK WindowProcedure (HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
@@ -1250,6 +1317,15 @@ LRESULT CALLBACK WindowProcedure (HWND hwnd, UINT message, WPARAM wParam, LPARAM
                 cardinalVector.push_back(Point(LOWORD(lParam), HIWORD(lParam)));
                 cardinalCtr++;
                 CardinalSpline(hdc, cardinalVector, cardinalCtr, 2);
+                line = concatenateString("CardinalSpline",2,cardinalCtr,2);
+                for(std::size_t i = 0; i < cardinalVector.size(); ++i)
+                {
+                    line+=tostring(cardinalVector[i].x);
+                    line= line + ',' + tostring(cardinalVector[i].y);
+                    if(i!=cardinalVector.size()-1)
+                        line+=',';
+                }
+                fileContent.push_back(line);
                 cardinalCtr = 0;
                 cardinalVector.clear();
             }
@@ -1421,6 +1497,15 @@ LRESULT CALLBACK WindowProcedure (HWND hwnd, UINT message, WPARAM wParam, LPARAM
                         {
                             Point points [] = {Point(xc, yc), Point(x, y), Point(x1, y_1), Point(x2, y2)};
                             //fillPolygon(hdc, points, 4);
+                            line = concatenateString("CardinalSpline",2,cardinalCtr,2);
+                            for(std::size_t i = 0; i < cardinalVector.size(); ++i)
+                            {
+                                line+=tostring(cardinalVector[i].x);
+                                line= line + ',' + tostring(cardinalVector[i].y);
+                                if(i!=cardinalVector.size()-1)
+                                    line+=',';
+                            }
+                            fileContent.push_back(line);
                             break;
                         }
 
