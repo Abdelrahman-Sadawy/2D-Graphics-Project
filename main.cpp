@@ -1055,18 +1055,17 @@ void CardinalSpline(HDC hdc, vector<Point> P, int n, int c)
 }
 
 
-void FloodFillRec(HDC hdc, int x, int y, COLORREF borderColor, COLORREF fillingColor)
+void FloodFillRec(HDC hdc, int x, int y)
 {
     COLORREF color = GetPixel(hdc, x, y);
-    if (color == borderColor || color == fillingColor) return;
-    SetPixel(hdc, x, y, fillingColor);
-
-    FloodFillRec(hdc, x + 1, y, borderColor, fillingColor);
-    FloodFillRec(hdc, x - 1, y, borderColor, fillingColor);
-    FloodFillRec(hdc, x, y + 1, borderColor, fillingColor);
-    FloodFillRec(hdc, x, y - 1, borderColor, fillingColor);
+    if (color == tempC || color == c) return;
+    SetPixel(hdc, x, y, c);
+    FloodFillRec(hdc, x + 1, y);
+    FloodFillRec(hdc, x - 1, y);
+    FloodFillRec(hdc, x, y + 1);
+    FloodFillRec(hdc, x, y - 1);
 }
-void FLoodFillNonRec(HDC hdc, int x, int y, COLORREF borderColor, COLORREF fillingColor)
+void FLoodFillNonRec(HDC hdc, int x, int y)
 {
     stack<Point> s;
     s.push(Point(x, y));
@@ -1074,9 +1073,9 @@ void FLoodFillNonRec(HDC hdc, int x, int y, COLORREF borderColor, COLORREF filli
         Point p = s.top();
         s.pop();
         COLORREF color = GetPixel(hdc, p.x, p.y);
-        if (color == borderColor || color == fillingColor)
+        if (color == tempC || color == c)
             continue;
-        SetPixel(hdc, p.x, p.y, fillingColor);
+        SetPixel(hdc, p.x, p.y, c);
         s.push(Point(p.x + 1, p.y));
         s.push(Point(p.x - 1, p.y));
         s.push(Point(p.x, p.y + 1));
@@ -1084,85 +1083,6 @@ void FLoodFillNonRec(HDC hdc, int x, int y, COLORREF borderColor, COLORREF filli
     }
 }
 
-// convex polygon filling
-/*
-typedef struct
-{
-    int xLeft, xRight;
-} edgeTable[800];
-
-void initEdgeTable(edgeTable table)
-{
-    for (int i = 0; i < 800; i++)
-    {
-        table[i].xLeft = INT_MAX;
-        table[i].xRight = -INT_MAX;
-
-    }
-}
-
-void edge2Table (Point p1, Point p2, edgeTable table)
-{
-    if (p1.y == p2.y)
-        return;
-    if (p1.y > p2.y)
-    {
-        Swap(p1.x, p2.x);
-        Swap(p1.y, p2.y);
-    }
-
-    double minv = (p2.x - p1.x) / (double) (p2.y - p1.y);
-    double x = p1.x;
-    int y = p1.y;
-
-    while (y < p2.y)
-    {
-        if (x < table[y].xLeft)
-        {
-            table[y].xLeft = (int) ceil(x);
-        }
-        if (x > table[y].xRight)
-        {
-            table[y].xRight = (int) floor(x);
-        }
-        y++;
-        x += minv;
-    }
-
-}
-
-void polygon2Table (vector<Point> points, int n, edgeTable table)
-{
-    Point p1 = points[n-1];
-
-    for (int i = 0; i < n; i++)
-    {
-        Point p2 = points[i];
-        edge2Table(p1, p2, table);
-        p1 = p2;
-    }
-}
-
-void  table2Screen (HDC hdc, edgeTable table)
-{
-    for (int i = 0; i < 800; i++)
-    {
-        if (table[i].xLeft < table[i].xRight)
-        {
-            LineDDA(hdc, table[i].xLeft, i, table[i].xRight, i);
-        }
-    }
-}
-
-void fillPolygon (HDC hdc, vector<Point> points, int n)
-{
-    edgeTable table;
-    initEdgeTable(table);
-    polygon2Table(points, n, table);
-    table2Screen(hdc, table);
-
-}
-*/
 //Non convex polygon filling
 struct EdgeRec
 {
@@ -1512,12 +1432,12 @@ void callFunc(string* functionData, HDC hdc)
     else if(funName=="FloodFillRec") //FloodFillRec(hdc, x, y, tempC, c);
     {
         stringToColor(functionData[3], tempC);
-        FloodFillRec(hdc, a, b, tempC, c);
+        FloodFillRec(hdc, a, b);
     }
     else if(funName=="FLoodFillNonRec")
     {
         stringToColor(functionData[3], tempC);
-        FLoodFillNonRec(hdc, a, b, tempC, c);
+        FLoodFillNonRec(hdc, a, b);
     }
     else if(funName=="pointClippingCircle")
         pointClippingCircle(hdc, a, b, c, d, e);
@@ -1703,13 +1623,13 @@ LRESULT CALLBACK WindowProcedure (HWND hwnd, UINT message, WPARAM wParam, LPARAM
                 y = HIWORD(lParam);
                 cnt++;
                 if (algo == FLOODRECURSIVE) {
-                    FloodFillRec(hdc, x, y, tempC, c);
+                    FloodFillRec(hdc, x, y);
                     line = concatenateString("FloodFillRec", 2, x,  y) + tostring(tempC) +','+ tostring(c);
                     fileContent.push_back(line);
                     cnt = 0;
                 }
                 else if (algo == FLOODNONRECURSIVE) {
-                    FLoodFillNonRec(hdc, x, y, tempC, c);
+                    FLoodFillNonRec(hdc, x, y);
                     line = concatenateString("FLoodFillNonRec", 2, x,  y) + tostring(tempC) +','+ tostring(c);
                     fileContent.push_back(line);
                     cnt = 0;

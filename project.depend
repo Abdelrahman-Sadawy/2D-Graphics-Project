@@ -5,7 +5,7 @@
 	<math.h>
 	<windows.h>
 
-1653911260 source:d:\codeblocks\2d-graphics-project\main.cpp
+1654015604 source:d:\codeblocks\2d-graphics-project\main.cpp
 	<iostream>
 	<tchar.h>
 	<math.h>
@@ -16,6 +16,7 @@
 	<fstream>
 	<vector>
 	<stack>
+	<cstdarg>
 
 1653931207 source:d:\semster_6\graphics\assignments\project\main.cpp
 	<iostream>
