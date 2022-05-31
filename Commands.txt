@@ -1,2 +1,0 @@
-modifiedMidpointCircle,208,95,26,green
-FLoodFillNonRec,215,97,green,green

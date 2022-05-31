@@ -65,7 +65,7 @@ HMENU hmenu;
 //---------------------------
 list<string> fileContent;
 string line;
-#define max 200
+#define max 100
 
 void save()
 {
@@ -89,15 +89,15 @@ string tostring(int a)
 
 string tostring(COLORREF c)
 {
-    if(c == RGB(255,0,0) || tempC == RGB(255,0,0))
+    if(c == RGB(255,0,0))
         return "red";
-    else if(c == RGB(255,255,0) || tempC == RGB(255,255,0))
+    else if(c == RGB(255,255,0))
         return "yellow";
-    else if(c==RGB(0,0,0) || tempC == RGB(0,0,0))
+    else if(c==RGB(0,0,0))
         return "black";
-    else if(c == RGB(0,0,255) || tempC == RGB(0,0,255))
+    else if(c == RGB(0,0,255))
         return "blue";
-    else if(c == RGB(0,255,0) || tempC == RGB(0,255,0))
+    else if(c == RGB(0,255,0))
         return "green";
 }
 
@@ -138,41 +138,40 @@ string* split (string str, char seperator)
         }
         i++;
     }
-    for(int i=currIndex; i<max; i++)
-         strings[i] = "";
+    strings[currIndex] = "";
     return strings;
 }
 
-void stringToColor(string color, COLORREF &c)
+void stringToColor(string color, COLORREF &cc)
 {
 
     if(color == "red")
     {
-         c = RGB(255,0,0);
-         tempC = RGB(255,0,0);
+         cc = RGB(255,0,0);
+         //tempC = RGB(255,0,0);
     }
     else if(color == "yellow")
     {
-        c = RGB(255,255,0);
-        tempC = RGB(255,255,0);
+        cc = RGB(255,255,0);
+        //tempC = RGB(255,255,0);
     }
 
     else if(color == "black")
     {
-        c = RGB(0,0,0);
-        tempC = RGB(0,0,0);
+        cc = RGB(0,0,0);
+        //tempC = RGB(0,0,0);
     }
 
     else if(color == "blue")
     {
-        c = RGB(0,0,255);
-        tempC = RGB(0,0,255);
+        cc = RGB(0,0,255);
+        //tempC = RGB(0,0,255);
     }
 
     else if(color == "green")
     {
-        c = RGB(0,255,0);
-        tempC = RGB(0,255,0);
+        cc = RGB(0,255,0);
+        //tempC = RGB(0,255,0);
     }
 
 }
@@ -208,23 +207,23 @@ void printColorOptions()
     {
     case 1:
         c = RGB(255,0,0);
-        tempC = RGB(255,0,0);
+        //tempC = RGB(255,0,0);
         break;
     case 2:
         c = RGB(255,255,0);
-        tempC = RGB(255,255,0);
+        //tempC = RGB(255,255,0);
         break;
     case 3:
         c = RGB(0,0,0);
-        tempC = RGB(0,0,0);
+        //tempC = RGB(0,0,0);
         break;
     case 4:
         c = RGB(0,0,255);
-        tempC = RGB(0,0,255);
+        //tempC = RGB(0,0,255);
         break;
     case 5:
         c = RGB(0,255,0);
-        tempC = RGB(0,255,0);
+        //tempC = RGB(0,255,0);
         break;
 
      default:
@@ -1086,7 +1085,7 @@ void FLoodFillNonRec(HDC hdc, int x, int y, COLORREF borderColor, COLORREF filli
 }
 
 // convex polygon filling
-
+/*
 typedef struct
 {
     int xLeft, xRight;
@@ -1163,7 +1162,7 @@ void fillPolygon (HDC hdc, vector<Point> points, int n)
     table2Screen(hdc, table);
 
 }
-
+*/
 //Non convex polygon filling
 struct EdgeRec
 {
@@ -1513,14 +1512,12 @@ void callFunc(string* functionData, HDC hdc)
     else if(funName=="FloodFillRec") //FloodFillRec(hdc, x, y, tempC, c);
     {
         stringToColor(functionData[3], tempC);
-        //stringToColor(functionData[4], c);
-        FloodFillRec(hdc, a, b, c, tempC);
+        FloodFillRec(hdc, a, b, tempC, c);
     }
     else if(funName=="FLoodFillNonRec")
     {
         stringToColor(functionData[3], tempC);
-        //stringToColor(functionData[4], c);
-        FLoodFillNonRec(hdc, a, b, c, tempC);
+        FLoodFillNonRec(hdc, a, b, tempC, c);
     }
     else if(funName=="pointClippingCircle")
         pointClippingCircle(hdc, a, b, c, d, e);
@@ -1581,7 +1578,7 @@ void callFunc(string* functionData, HDC hdc)
             Point p(toInt(functionData[i]),toInt(functionData[i+1]));
             vect.push_back(p);
         }
-        fillPolygon(hdc, vect, a);
+        //fillPolygon(hdc, vect, a);
     }
     else if (funName == "NonConvexPolygonFill")
     {
@@ -1592,6 +1589,16 @@ void callFunc(string* functionData, HDC hdc)
             vect.push_back(p);
         }
         NonConvexPolygonFill(hdc,vect, a);
+    }
+    else if (funName == "NonConvexPolygonFill")
+    {
+        vector<Point> vect;
+        for(int i=6; i<6+(2*a);i+=2)
+        {
+            Point p(toInt(functionData[i]),toInt(functionData[i+1]));
+            vect.push_back(p);
+        }
+        PolygonClip(hdc, vect, a, b, c, d, e);
     }
 
 
@@ -1646,7 +1653,7 @@ LRESULT CALLBACK WindowProcedure (HWND hwnd, UINT message, WPARAM wParam, LPARAM
             else if (algo == CONVEX) {
                 convexVector.push_back(Point(LOWORD(lParam), HIWORD(lParam)));
                 convexCtr++;
-                fillPolygon(hdc, convexVector, convexCtr);
+                //fillPolygon(hdc, convexVector, convexCtr);
                 line = concatenateString("fillPolygon",1,convexCtr);
                 for(std::size_t i = 0; i < convexVector.size(); ++i)
                 {
@@ -1679,6 +1686,14 @@ LRESULT CALLBACK WindowProcedure (HWND hwnd, UINT message, WPARAM wParam, LPARAM
                 polygonVector.push_back(Point(LOWORD(lParam), HIWORD(lParam)));
                 polygonCtr++;
                 PolygonClip(hdc, polygonVector, polygonCtr, 100, 50, 400, 200);
+                line = concatenateString("PolygonClip", 5, polygonCtr, 100, 50, 400, 200);
+                for(std::size_t i = 0; i < polygonVector.size(); ++i)
+                {
+                    line+=tostring(polygonVector[i].x);
+                    line= line + ',' + tostring(polygonVector[i].y)+',';
+                }
+                line+=tostring(c);
+                fileContent.push_back(line);
                 polygonCtr = 0;
                 polygonVector.clear();
             }
@@ -1891,6 +1906,9 @@ LRESULT CALLBACK WindowProcedure (HWND hwnd, UINT message, WPARAM wParam, LPARAM
                     case CLEAR:
                     {
                         ofstream file("Commands.txt");
+                        list<string>::iterator itr = fileContent.begin();
+                        list<string>::iterator itr2 = fileContent.end();
+                        fileContent.erase(itr, itr2);
                         InvalidateRect(hwnd, NULL, true);
                         break;
                     }
@@ -1951,9 +1969,7 @@ LRESULT CALLBACK WindowProcedure (HWND hwnd, UINT message, WPARAM wParam, LPARAM
                         algo = POLYGONCLIPPING;
                         fileContent.push_back(line);
                         break;
-
                     }
-
                     case RED:
                         c = RGB(255,0,0);
                         break;
