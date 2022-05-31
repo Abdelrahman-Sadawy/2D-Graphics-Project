@@ -58,6 +58,7 @@ HMENU hmenu;
 //---------------------------
 list<string> fileContent;
 string line;
+#define max 20
 
 void save()
 {
@@ -110,7 +111,7 @@ string concatenateString(string funName,int ni, ...)
     return temp;
 }
 
-#define max 10
+
 string* split (string str, char seperator)
 {
     string* strings = new string[max];
@@ -1276,7 +1277,7 @@ void callFunc(string* functionData, HDC hdc)
     else if(funName=="CardinalSpline")
     {
         vector<Point> vect;
-        for(int i=3; i<i+(2*a);i+=2)
+        for(int i=3; i<3+(2*a);i+=2)
         {
             Point p(toInt(functionData[i]),toInt(functionData[i+1]));
             vect.push_back(p);
@@ -1321,10 +1322,9 @@ LRESULT CALLBACK WindowProcedure (HWND hwnd, UINT message, WPARAM wParam, LPARAM
                 for(std::size_t i = 0; i < cardinalVector.size(); ++i)
                 {
                     line+=tostring(cardinalVector[i].x);
-                    line= line + ',' + tostring(cardinalVector[i].y);
-                    if(i!=cardinalVector.size()-1)
-                        line+=',';
+                    line= line + ',' + tostring(cardinalVector[i].y)+',';
                 }
+                line+=tostring(c);
                 fileContent.push_back(line);
                 cardinalCtr = 0;
                 cardinalVector.clear();
