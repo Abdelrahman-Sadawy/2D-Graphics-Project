@@ -89,15 +89,15 @@ string tostring(int a)
 
 string tostring(COLORREF c)
 {
-    if(c == RGB(255,0,0))
+    if(c == RGB(255,0,0) || tempC == RGB(255,0,0))
         return "red";
-    else if(c == RGB(255,255,0))
+    else if(c == RGB(255,255,0) || tempC == RGB(255,255,0))
         return "yellow";
-    else if(c==RGB(0,0,0))
+    else if(c==RGB(0,0,0) || tempC == RGB(0,0,0))
         return "black";
-    else if(c == RGB(0,0,255))
+    else if(c == RGB(0,0,255) || tempC == RGB(0,0,255))
         return "blue";
-    else if(c == RGB(0,255,0))
+    else if(c == RGB(0,255,0) || tempC == RGB(0,255,0))
         return "green";
 }
 
@@ -147,15 +147,34 @@ void stringToColor(string color, COLORREF &c)
 {
 
     if(color == "red")
-        c = RGB(255,0,0);
+    {
+         c = RGB(255,0,0);
+         tempC = RGB(255,0,0);
+    }
     else if(color == "yellow")
+    {
         c = RGB(255,255,0);
+        tempC = RGB(255,255,0);
+    }
+
     else if(color == "black")
+    {
         c = RGB(0,0,0);
+        tempC = RGB(0,0,0);
+    }
+
     else if(color == "blue")
+    {
         c = RGB(0,0,255);
+        tempC = RGB(0,0,255);
+    }
+
     else if(color == "green")
+    {
         c = RGB(0,255,0);
+        tempC = RGB(0,255,0);
+    }
+
 }
 
 int toInt(string str)
@@ -189,18 +208,23 @@ void printColorOptions()
     {
     case 1:
         c = RGB(255,0,0);
+        tempC = RGB(255,0,0);
         break;
     case 2:
         c = RGB(255,255,0);
+        tempC = RGB(255,255,0);
         break;
     case 3:
         c = RGB(0,0,0);
+        tempC = RGB(0,0,0);
         break;
     case 4:
         c = RGB(0,0,255);
+        tempC = RGB(0,0,255);
         break;
     case 5:
         c = RGB(0,255,0);
+        tempC = RGB(0,255,0);
         break;
 
      default:
@@ -1490,13 +1514,13 @@ void callFunc(string* functionData, HDC hdc)
     {
         stringToColor(functionData[3], tempC);
         //stringToColor(functionData[4], c);
-        FloodFillRec(hdc, a, b, tempC, c);
+        FloodFillRec(hdc, a, b, c, tempC);
     }
     else if(funName=="FLoodFillNonRec")
     {
         stringToColor(functionData[3], tempC);
         //stringToColor(functionData[4], c);
-        FLoodFillNonRec(hdc, a, b, tempC, c);
+        FLoodFillNonRec(hdc, a, b, c, tempC);
     }
     else if(funName=="pointClippingCircle")
         pointClippingCircle(hdc, a, b, c, d, e);
