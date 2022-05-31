@@ -1056,7 +1056,7 @@ void FLoodFillNonRec(HDC hdc, int x, int y, COLORREF borderColor, COLORREF filli
 }
 
 // convex polygon filling
-
+/*
 typedef struct
 {
     int xLeft, xRight;
@@ -1133,6 +1133,7 @@ void fillPolygon (HDC hdc, vector<Point> points, int n)
     table2Screen(hdc, table);
 
 }
+*/
 //Rectangle clipping
 void PointClippingRect(HDC hdc, int x, int y, int xleft, int ytop, int xright, int ybottom)
 {
@@ -1351,6 +1352,13 @@ void callFunc(string* functionData, HDC hdc)
         ellipseMidPoint(hdc, a, b, c, d);
     else if(funName=="CohenSuth")
         CohenSuth(hdc, a, b, c, d, e, f, g, h);
+    else if(funName=="PointClippingRect")
+        PointClippingRect(hdc, a, b, c, d, e, f);
+    else if(funName=="fillHorizontal")
+        fillHorizontal(hdc, a, b, c,d);
+    else if(funName=="fillVertical")
+        fillVertical(hdc, a, b, c,d);
+
     else if(funName=="CardinalSpline")
     {
         vector<Point> vect;
@@ -1361,6 +1369,17 @@ void callFunc(string* functionData, HDC hdc)
         }
         CardinalSpline(hdc, vect, a, b);
     }
+    else if(funName=="fillPolygon")
+    {
+        vector<Point> vect;
+        for(int i=2; i<2+(2*a);i+=2)
+        {
+            Point p(toInt(functionData[i]),toInt(functionData[i+1]));
+            vect.push_back(p);
+        }
+        //fillPolygon(hdc, convexVector, a);
+    }
+
 
 }
 void load(HDC hdc)
@@ -1411,7 +1430,15 @@ LRESULT CALLBACK WindowProcedure (HWND hwnd, UINT message, WPARAM wParam, LPARAM
             else if (algo == CONVEX) {
                 convexVector.push_back(Point(LOWORD(lParam), HIWORD(lParam)));
                 convexCtr++;
-                fillPolygon(hdc, convexVector, convexCtr);
+                //fillPolygon(hdc, convexVector, convexCtr);
+                line = concatenateString("fillPolygon",1,convexCtr);
+                for(std::size_t i = 0; i < convexVector.size(); ++i)
+                {
+                    line+=tostring(convexVector[i].x);
+                    line= line + ',' + tostring(convexVector[i].y)+',';
+                }
+                line+=tostring(c);
+                fileContent.push_back(line);
                 convexCtr = 0;
                 convexVector.clear();
             }
@@ -1424,11 +1451,13 @@ LRESULT CALLBACK WindowProcedure (HWND hwnd, UINT message, WPARAM wParam, LPARAM
                     FloodFillRec(hdc, x, y, tempC, c);
                     line = concatenateString("FloodFillRec", 2, x,  y) + tostring(tempC) +','+ tostring(c);
                     fileContent.push_back(line);
+                    cnt = 0;
                 }
                 else if (algo == FLOODNONRECURSIVE) {
                     FLoodFillNonRec(hdc, x, y, tempC, c);
                     line = concatenateString("FLoodFillNonRec", 2, x,  y) + tostring(tempC) +','+ tostring(c);
                     fileContent.push_back(line);
+                    cnt = 0;
                 }
                 if(algo == POINTCLIPPINCIRCLE)
                 {
@@ -1462,16 +1491,22 @@ LRESULT CALLBACK WindowProcedure (HWND hwnd, UINT message, WPARAM wParam, LPARAM
                 {
                     //(hdc,150, 100, 350, 300);
                     PointClippingRect(hdc, x, y, 150,100, 350,300);
+                    line = concatenateString("PointClippingRect", 6, x,  y,  150,100, 350,300) + tostring(c);
+                    fileContent.push_back(line);
                     cnt = 0;
                 }
                 else if(algo == RECTBEZIER)
                 {
                     fillHorizontal(hdc, 100,50, 400,200);
+                    line = concatenateString("fillHorizontal", 4, 100,50, 400,200) + tostring(c);
+                    fileContent.push_back(line);
                     cnt = 0;
                 }
                 else if(algo == SQUAREHERMITE)
                 {
                     fillVertical(hdc, 150,100, 350,300);
+                    line = concatenateString("fillVertical", 4, 150,100, 350,300) + tostring(c);
+                    fileContent.push_back(line);
                     cnt = 0;
                 }
 
@@ -1584,7 +1619,8 @@ LRESULT CALLBACK WindowProcedure (HWND hwnd, UINT message, WPARAM wParam, LPARAM
                             break;
                         case LINECLIPPINGSQUARE:
                             CohenSuth(hdc, xc, yc, x, y, 150,100, 350,300);
-                            cnt = 0;
+                            line = concatenateString("CohenSuth", 8, xc, yc, x, y, 150, 100, 350, 300) + tostring(c);
+                            fileContent.push_back(line);
                             break;
                         default:
                             break;
@@ -1605,36 +1641,48 @@ LRESULT CALLBACK WindowProcedure (HWND hwnd, UINT message, WPARAM wParam, LPARAM
                 switch(LOWORD(wParam))
                 {
                     case CLEAR:
+                    {
+                        ofstream file("Commands.txt");
                         InvalidateRect(hwnd, NULL, true);
                         break;
+                    }
                     case POINTCLIPPINGRECT:
+                    {
                         Rectangle(hdc, 100,200, 400,50);
                         algo = POINTCLIPPINGRECT;
                         break;
-
+                    }
                     case LINECLIPPINGRECT:
+                    {
                         Rectangle(hdc, 100,200, 400,50);
                         algo = LINECLIPPINGRECT;
                         break;
+                    }
                     case LINECLIPPINGSQUARE:
+                    {
                         Rectangle(hdc,150, 100, 350, 300);
                         algo = LINECLIPPINGSQUARE;
                         break;
-
+                    }
                     case POINTCLIPPINGSQUARE:
+                    {
                         Rectangle(hdc,150, 100, 350, 300);
                         algo = POINTCLIPPINGSQUARE;
                         break;
-
+                    }
                     case RECTBEZIER:
+                    {
                         Rectangle(hdc, 100,200, 400,50);
                         algo = RECTBEZIER;
                         break;
+                    }
 
                     case SQUAREHERMITE:
+                    {
                         Rectangle(hdc,150, 100, 350, 300);
                         algo = SQUAREHERMITE;
                         break;
+                    }
 
                     case RED:
                         c = RGB(255,0,0);
