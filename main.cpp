@@ -65,7 +65,7 @@ HMENU hmenu;
 //---------------------------
 list<string> fileContent;
 string line;
-#define max 20
+#define max 200
 
 void save()
 {
@@ -349,9 +349,12 @@ void menus(HWND hwnd)
     AppendMenu(curveFillingMenu, MF_STRING, RECTBEZIER, _T("Rectangle"));
     AppendMenu(curveFillingMenu, MF_STRING, SQUAREHERMITE, _T("Square"));
 
-    AppendMenu(hmenu, MF_STRING, SAVE, _T("Save"));
-    AppendMenu(hmenu, MF_STRING, LOAD, _T("load"));
-    AppendMenu(hmenu, MF_STRING, CLEAR, _T("Clear"));
+    HMENU fileMenu = CreateMenu();
+    AppendMenu(fileMenu, MF_STRING, SAVE, _T("Save"));
+    AppendMenu(fileMenu, MF_STRING, LOAD, _T("load"));
+    AppendMenu(fileMenu, MF_STRING, CLEAR, _T("Clear"));
+
+    AppendMenu(hmenu, MF_POPUP, (UINT_PTR) fileMenu, _T("File"));
     AppendMenu(hmenu, MF_POPUP, (UINT_PTR) colorMenu, _T("Color"));
     AppendMenu(hmenu, MF_POPUP, (UINT_PTR) mouseMenu, _T("Mouse"));
     AppendMenu(hmenu, MF_POPUP, (UINT_PTR)LineMenu, _T("Line"));
@@ -1533,6 +1536,8 @@ void callFunc(string* functionData, HDC hdc)
         fillHorizontal(hdc, a, b, c,d);
     else if(funName=="fillVertical")
         fillVertical(hdc, a, b, c,d);
+    else if (funName == "Rectangle")
+        Rectangle(hdc, a, b, c, d);
 
     else if(funName=="CardinalSpline")
     {
@@ -1553,6 +1558,16 @@ void callFunc(string* functionData, HDC hdc)
             vect.push_back(p);
         }
         fillPolygon(hdc, vect, a);
+    }
+    else if (funName == "NonConvexPolygonFill")
+    {
+        vector<Point> vect;
+        for(int i=2; i<2+(2*a);i+=2)
+        {
+            Point p(toInt(functionData[i]),toInt(functionData[i+1]));
+            vect.push_back(p);
+        }
+        NonConvexPolygonFill(hdc,vect, a);
     }
 
 
@@ -1624,6 +1639,14 @@ LRESULT CALLBACK WindowProcedure (HWND hwnd, UINT message, WPARAM wParam, LPARAM
                 polygonVector.push_back(Point(LOWORD(lParam), HIWORD(lParam)));
                 polygonCtr++;
                 NonConvexPolygonFill(hdc, polygonVector, polygonCtr);
+                line = concatenateString("NonConvexPolygonFill", 1, polygonCtr);
+                for(std::size_t i = 0; i < polygonVector.size(); ++i)
+                {
+                    line+=tostring(polygonVector[i].x);
+                    line= line + ',' + tostring(polygonVector[i].y)+',';
+                }
+                line+=tostring(c);
+                fileContent.push_back(line);
                 polygonCtr = 0;
                 polygonVector.clear();
             }
@@ -1631,7 +1654,6 @@ LRESULT CALLBACK WindowProcedure (HWND hwnd, UINT message, WPARAM wParam, LPARAM
             {
                 polygonVector.push_back(Point(LOWORD(lParam), HIWORD(lParam)));
                 polygonCtr++;
-                cout<<"Right here\n";
                 PolygonClip(hdc, polygonVector, polygonCtr, 100, 50, 400, 200);
                 polygonCtr = 0;
                 polygonVector.clear();
@@ -1851,45 +1873,59 @@ LRESULT CALLBACK WindowProcedure (HWND hwnd, UINT message, WPARAM wParam, LPARAM
                     case POINTCLIPPINGRECT:
                     {
                         Rectangle(hdc, 100,200, 400,50);
+                        line = concatenateString("Rectangle", 4, 100,200, 400,50) + tostring(c);
                         algo = POINTCLIPPINGRECT;
+                        fileContent.push_back(line);
                         break;
                     }
                     case LINECLIPPINGRECT:
                     {
                         Rectangle(hdc, 100,200, 400,50);
+                        line = concatenateString("Rectangle", 4, 100,200, 400,50) + tostring(c);
                         algo = LINECLIPPINGRECT;
+                        fileContent.push_back(line);
                         break;
                     }
                     case LINECLIPPINGSQUARE:
                     {
                         Rectangle(hdc,150, 100, 350, 300);
+                        line = concatenateString("Rectangle", 4, 150,100, 350,300) + tostring(c);
                         algo = LINECLIPPINGSQUARE;
+                        fileContent.push_back(line);
                         break;
                     }
                     case POINTCLIPPINGSQUARE:
                     {
                         Rectangle(hdc,150, 100, 350, 300);
+                        line = concatenateString("Rectangle", 4, 150,100, 350,300) + tostring(c);
                         algo = POINTCLIPPINGSQUARE;
+                        fileContent.push_back(line);
                         break;
                     }
                     case RECTBEZIER:
                     {
                         Rectangle(hdc, 100,200, 400,50);
+                        line = concatenateString("Rectangle", 4, 100,200, 400,50) + tostring(c);
                         algo = RECTBEZIER;
+                        fileContent.push_back(line);
                         break;
                     }
 
                     case SQUAREHERMITE:
                     {
                         Rectangle(hdc,150, 100, 350, 300);
+                        line = concatenateString("Rectangle", 4, 150,100, 350,300) + tostring(c);
                         algo = SQUAREHERMITE;
+                        fileContent.push_back(line);
                         break;
                     }
 
                     case POLYGONCLIPPING:
                     {
                         Rectangle(hdc, 100,200, 400,50);
+                        line = concatenateString("Rectangle", 4, 100,200, 400,50) + tostring(c);
                         algo = POLYGONCLIPPING;
+                        fileContent.push_back(line);
                         break;
 
                     }
