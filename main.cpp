@@ -52,6 +52,8 @@
 #define RECTBEZIER 36
 #define SQUAREHERMITE 37
 #define CLEAR 38
+#define POLYGONCLIPPING 39
+#define MAXENTRIES 600
 using namespace std;
 
 int algo = 0;
@@ -321,6 +323,7 @@ void menus(HWND hwnd)
 
     AppendMenu(rectangleClippingMenu, MF_STRING, POINTCLIPPINGRECT, _T("Point"));
     AppendMenu(rectangleClippingMenu, MF_STRING, LINECLIPPINGRECT, _T("Line"));
+    AppendMenu(rectangleClippingMenu, MF_STRING, POLYGONCLIPPING, _T("Polygon"));
 
     AppendMenu(circleClippingMenu, MF_STRING, POINTCLIPPINCIRCLE, _T("Point"));
     AppendMenu(circleClippingMenu, MF_STRING, LINECLIPPINCIRCLE, _T("Line"));
@@ -1056,7 +1059,7 @@ void FLoodFillNonRec(HDC hdc, int x, int y, COLORREF borderColor, COLORREF filli
 }
 
 // convex polygon filling
-/*
+
 typedef struct
 {
     int xLeft, xRight;
@@ -1133,7 +1136,87 @@ void fillPolygon (HDC hdc, vector<Point> points, int n)
     table2Screen(hdc, table);
 
 }
-*/
+
+//Non convex polygon filling
+struct EdgeRec
+{
+    double x;
+    double minv;
+    int ymax;
+    bool operator<(EdgeRec r)
+    {
+        return x<r.x;
+    }
+};
+typedef list<EdgeRec> EdgeList;
+
+EdgeRec InitEdgeRec(Point& v1,Point& v2)
+{
+     if(v1.y>v2.y)
+        swap(v1,v2);
+    EdgeRec rec;
+    rec.x = v1.x;
+    rec.ymax = v2.y;
+    rec.minv = (double)(v2.x-v1.x)/(v2.y-v1.y);
+    return rec;
+}
+
+void InitEdgeTable(vector<Point> polygon,int n,EdgeList table[])
+{
+    Point v1=polygon[n-1];
+    for(int i=0;i<n;i++)
+    {
+        Point v2=polygon[i];
+        if(v1.y==v2.y)
+        {
+            v1=v2;
+            continue;
+        }
+        EdgeRec rec = InitEdgeRec(v1, v2);
+        table[v1.y].push_back(rec);
+        v1 = polygon[i];
+    }
+}
+
+void NonConvexPolygonFill(HDC hdc, vector<Point> polygon, int n)
+{
+    EdgeList *table = new EdgeList [MAXENTRIES];
+    InitEdgeTable(polygon, n, table);
+    int y = 0;
+    while(y < MAXENTRIES && table[y].size()== 0)
+        y++;
+    if(y == MAXENTRIES)
+        return;
+    EdgeList ActiveList = table[y];
+    while (ActiveList.size()>0)
+    {
+        ActiveList.sort();
+        for(EdgeList::iterator it=ActiveList.begin();it!=ActiveList.end();it++)
+        {
+            int x1 = (int)ceil(it->x);
+            it++;
+            int x2 = (int)floor(it->x);
+            for(int x = x1; x <= x2; x++)
+                SetPixel(hdc, x, y, c);
+        }
+
+        y++;
+        EdgeList::iterator it=ActiveList.begin();
+
+        while(it!=ActiveList.end())
+            if(y==it->ymax)
+                it=ActiveList.erase(it);
+            else
+                it++;
+
+        for(EdgeList::iterator it=ActiveList.begin();it!=ActiveList.end();it++)
+            it->x+=it->minv;
+
+        ActiveList.insert(ActiveList.end(),table[y].begin(),table[y].end());
+    }
+    delete[] table;
+}
+
 //Rectangle clipping
 void PointClippingRect(HDC hdc, int x, int y, int xleft, int ytop, int xright, int ybottom)
 {
@@ -1282,6 +1365,98 @@ void fillVertical (HDC hdc, int xl, int yt, int xr, int yb)
     }
 
 }
+
+/////////////////////////polygon clipping
+
+struct Vertex
+{
+    double x,y;
+    Vertex(int x1=0,int y1=0)
+    {
+        x=x1;
+        y=y1;
+    }
+};
+typedef vector<Vertex> VertexList;
+typedef bool(*IsInFunc)(Vertex& v,int edge);
+typedef Vertex(*IntersectFunc)(Vertex& v1,Vertex& v2,int edge);
+
+VertexList ClipWithEdge(VertexList p,int edge,IsInFunc In,IntersectFunc Intersect)
+{
+    VertexList OutList;
+    Vertex v1=p[p.size()-1];
+    bool v1_in=In(v1,edge);
+    for(int i=0;i<(int)p.size();i++)
+    {
+        Vertex v2=p[i];
+        bool v2_in=In(v2,edge);
+        if(!v1_in && v2_in)
+        {
+            OutList.push_back(Intersect(v1,v2,edge));
+            OutList.push_back(v2);
+        }
+        else if(v1_in && v2_in)
+            OutList.push_back(v2);
+        else if(v1_in)
+            OutList.push_back(Intersect(v1,v2,edge));
+        v1=v2;
+        v1_in=v2_in;
+        }
+        return OutList;
+    }
+bool InLeft(Vertex& v,int edge)
+{
+    return v.x>=edge;
+}
+bool InRight(Vertex& v,int edge)
+{
+    return v.x<=edge;
+}
+bool InTop(Vertex& v,int edge)
+{
+    return v.y>=edge;
+}
+bool InBottom(Vertex& v,int edge)
+{
+    return v.y<=edge;
+}
+
+Vertex VIntersect(Vertex& v1,Vertex& v2,int xedge)
+{
+    Vertex res;
+    res.x = xedge;
+    res.y = v1.y+(xedge-v1.x)*(v2.y-v1.y)/(v2.x-v1.x);
+    return res;
+}
+Vertex HIntersect(Vertex& v1,Vertex& v2,int yedge)
+{
+    Vertex res;
+    res.y = yedge;
+    res.x = v1.x+(yedge-v1.y)*(v2.x-v1.x)/(v2.y-v1.y);
+    return res;
+}
+
+void PolygonClip(HDC hdc, vector<Point> p,int n,int xleft,int ytop,int xright,int ybottom)
+{
+    VertexList vlist;
+    for(int i=0;i<n;i++)
+        vlist.push_back(Vertex(p[i].x,p[i].y));
+    vlist = ClipWithEdge(vlist, xleft, InLeft, VIntersect);
+    vlist = ClipWithEdge(vlist, ytop, InTop, HIntersect);
+    vlist = ClipWithEdge(vlist, xright, InRight, VIntersect);
+    vlist = ClipWithEdge(vlist, ybottom, InBottom, HIntersect);
+
+    Vertex v1=vlist[vlist.size()-1];
+    for(int i=0;i<(int)vlist.size();i++)
+    {
+        Vertex v2 = vlist[i];
+
+        MoveToEx(hdc,Round(v1.x),Round(v1.y),NULL);
+        //LineTo(hdc,Round(v2.x), Round(v2.y));
+        LineParametric(hdc,Round(v1.x),Round(v1.y),Round(v2.x), Round(v2.y));
+        v1=v2;
+    }
+}
 /*  This function is called by the Windows function DispatchMessage()  */
 
 
@@ -1377,7 +1552,7 @@ void callFunc(string* functionData, HDC hdc)
             Point p(toInt(functionData[i]),toInt(functionData[i+1]));
             vect.push_back(p);
         }
-        //fillPolygon(hdc, convexVector, a);
+        fillPolygon(hdc, vect, a);
     }
 
 
@@ -1409,6 +1584,8 @@ LRESULT CALLBACK WindowProcedure (HWND hwnd, UINT message, WPARAM wParam, LPARAM
 	static int cardinalCtr = 0;
 	static vector<Point> convexVector;
 	static int convexCtr = 0;
+	static vector<Point> polygonVector;
+    static int polygonCtr = 0;
     switch (message)                  /* handle the messages */
     {
         case WM_RBUTTONDOWN:
@@ -1430,7 +1607,7 @@ LRESULT CALLBACK WindowProcedure (HWND hwnd, UINT message, WPARAM wParam, LPARAM
             else if (algo == CONVEX) {
                 convexVector.push_back(Point(LOWORD(lParam), HIWORD(lParam)));
                 convexCtr++;
-                //fillPolygon(hdc, convexVector, convexCtr);
+                fillPolygon(hdc, convexVector, convexCtr);
                 line = concatenateString("fillPolygon",1,convexCtr);
                 for(std::size_t i = 0; i < convexVector.size(); ++i)
                 {
@@ -1441,6 +1618,23 @@ LRESULT CALLBACK WindowProcedure (HWND hwnd, UINT message, WPARAM wParam, LPARAM
                 fileContent.push_back(line);
                 convexCtr = 0;
                 convexVector.clear();
+            }
+            else if(algo == NONCONVEX)
+            {
+                polygonVector.push_back(Point(LOWORD(lParam), HIWORD(lParam)));
+                polygonCtr++;
+                NonConvexPolygonFill(hdc, polygonVector, polygonCtr);
+                polygonCtr = 0;
+                polygonVector.clear();
+            }
+            else if(algo == POLYGONCLIPPING)
+            {
+                polygonVector.push_back(Point(LOWORD(lParam), HIWORD(lParam)));
+                polygonCtr++;
+                cout<<"Right here\n";
+                PolygonClip(hdc, polygonVector, polygonCtr, 100, 50, 400, 200);
+                polygonCtr = 0;
+                polygonVector.clear();
             }
             if(cnt == 0)
             {
@@ -1535,102 +1729,110 @@ LRESULT CALLBACK WindowProcedure (HWND hwnd, UINT message, WPARAM wParam, LPARAM
                 convexVector.push_back(Point(LOWORD(lParam), HIWORD(lParam)));
                 convexCtr++;
             }
+            else if(algo == NONCONVEX)
+            {
+                polygonVector.push_back(Point(LOWORD(lParam), HIWORD(lParam)));
+                polygonCtr++;
+            }
+            else if(algo == POLYGONCLIPPING)
+            {
+                polygonVector.push_back(Point(LOWORD(lParam), HIWORD(lParam)));
+                polygonCtr++;
+            }
             else if(cnt == 0)
+            {
+                xc = LOWORD(lParam);
+                yc = HIWORD(lParam);
+
+                cnt++;
+            }
+            else if(cnt == 1)
+            {
+                x = LOWORD(lParam);
+                y = HIWORD(lParam);
+                cnt++;
+                radius = sqrt(pow((x-xc),2) + pow((y-yc),2));
+                switch(algo)
                 {
-                    xc = LOWORD(lParam);
-                    yc = HIWORD(lParam);
-
-                    cnt++;
+                    case LINEDDA:
+                        LineDDA(hdc, xc, yc, x, y);
+                        line = concatenateString("LineDDA", 4, xc, yc, x, y) + tostring(c);
+                        fileContent.push_back(line);
+                        break;
+                    case LINEMIDPOINT:
+                        LineMidPoint(hdc, xc, yc, x, y);
+                        line = concatenateString("LineMidPoint", 4, xc, yc, x, y) + tostring(c);
+                        fileContent.push_back(line);
+                        break;
+                    case LINEPARAMETRIC:
+                        LineParametric(hdc, xc, yc, x, y);
+                        line = concatenateString("LineParametric", 4, xc, yc, x, y) + tostring(c);
+                        fileContent.push_back(line);
+                        break;
+                    case DirectC:
+                        circleDirect(hdc, xc, yc, radius);
+                        line = concatenateString("circleDirect", 3, xc, yc, radius) + tostring(c);
+                        fileContent.push_back(line);
+                        break;
+                    case PolarC:
+                        circlePolar(hdc, xc, yc, radius);
+                        line = concatenateString("circlePolar", 3, xc, yc, radius) + tostring(c);
+                        fileContent.push_back(line);
+                        break;
+                    case ItPolarC:
+                        circleIterative(hdc, xc, yc, radius);
+                        line = concatenateString("circleIterative", 3, xc, yc, radius) + tostring(c);
+                        fileContent.push_back(line);
+                        break;
+                    case MidpointC:
+                        midpointCircle(hdc, xc, yc, radius);
+                        line = concatenateString("midpointCircle", 3, xc, yc, radius) + tostring(c);
+                        fileContent.push_back(line);
+                        break;
+                    case ModifiedMidpointC:
+                        modifiedMidpointCircle(hdc, xc, yc, radius);
+                        line = concatenateString("modifiedMidpointCircle", 3, xc, yc, radius) + tostring(c);
+                        fileContent.push_back(line);
+                        break;
+                    case DIRECTELLIPSE:
+                        a = abs(xc - x);
+                        b = abs(yc - y);
+                        directEllipse(hdc, xc, yc, a, b);
+                        line = concatenateString("directEllipse", 4, xc, yc, a, b) + tostring(c);
+                        fileContent.push_back(line);
+                        cnt = 0;
+                        break;
+                    case POLARELLIPSE:
+                        a = abs(xc - x);
+                        b = abs(yc - y);
+                        polarEllipse(hdc, xc, yc, a, b);
+                        line = concatenateString("polarEllipse", 4, xc, yc, a, b) + tostring(c);
+                        fileContent.push_back(line);
+                        break;
+                    case MIDPOINTELLIPSE:
+                        a = abs(xc - x);
+                        b = abs(yc - y);
+                        ellipseMidPoint(hdc, xc, yc, a, b);
+                        line = concatenateString("ellipseMidPoint", 4,  xc, yc, a, b) + tostring(c);
+                        fileContent.push_back(line);
+                        break;
+                    case LINECLIPPINGRECT:
+                        CohenSuth(hdc, xc, yc, x, y, 100, 50, 400, 200);
+                        line = concatenateString("CohenSuth", 8, xc, yc, x, y, 100, 50, 400, 200) + tostring(c);
+                        fileContent.push_back(line);
+                        break;
+                    case LINECLIPPINGSQUARE:
+                        CohenSuth(hdc, xc, yc, x, y, 150,100, 350,300);
+                        line = concatenateString("CohenSuth", 8, xc, yc, x, y, 150, 100, 350, 300) + tostring(c);
+                        fileContent.push_back(line);
+                        break;
+                    default:
+                        break;
                 }
-                else if(cnt == 1)
-                {
-                    x = LOWORD(lParam);
-                    y = HIWORD(lParam);
-                    cnt++;
-                    radius = sqrt(pow((x-xc),2) + pow((y-yc),2));
-                    switch(algo)
-                    {
-                        case LINEDDA:
-                            LineDDA(hdc, xc, yc, x, y);
-                            line = concatenateString("LineDDA", 4, xc, yc, x, y) + tostring(c);
-                            fileContent.push_back(line);
-                            break;
-                        case LINEMIDPOINT:
-                            LineMidPoint(hdc, xc, yc, x, y);
-                            line = concatenateString("LineMidPoint", 4, xc, yc, x, y) + tostring(c);
-                            fileContent.push_back(line);
-                            break;
-                        case LINEPARAMETRIC:
-                            LineParametric(hdc, xc, yc, x, y);
-                            line = concatenateString("LineParametric", 4, xc, yc, x, y) + tostring(c);
-                            fileContent.push_back(line);
-                            break;
-                        case DirectC:
-                            circleDirect(hdc, xc, yc, radius);
-                            line = concatenateString("circleDirect", 3, xc, yc, radius) + tostring(c);
-                            fileContent.push_back(line);
-                            break;
-                        case PolarC:
-                            circlePolar(hdc, xc, yc, radius);
-                            line = concatenateString("circlePolar", 3, xc, yc, radius) + tostring(c);
-                            fileContent.push_back(line);
-                            break;
-                        case ItPolarC:
-                            circleIterative(hdc, xc, yc, radius);
-                            line = concatenateString("circleIterative", 3, xc, yc, radius) + tostring(c);
-                            fileContent.push_back(line);
-                            break;
-                        case MidpointC:
-                            midpointCircle(hdc, xc, yc, radius);
-                            line = concatenateString("midpointCircle", 3, xc, yc, radius) + tostring(c);
-                            fileContent.push_back(line);
-                            break;
-                        case ModifiedMidpointC:
-                            modifiedMidpointCircle(hdc, xc, yc, radius);
-                            line = concatenateString("modifiedMidpointCircle", 3, xc, yc, radius) + tostring(c);
-                            fileContent.push_back(line);
-                            break;
-                        case DIRECTELLIPSE:
-                            a = abs(xc - x);
-                            b = abs(yc - y);
-                            directEllipse(hdc, xc, yc, a, b);
-                            line = concatenateString("directEllipse", 4, xc, yc, a, b) + tostring(c);
-                            fileContent.push_back(line);
-                            cnt = 0;
-                            break;
-                        case POLARELLIPSE:
-                            a = abs(xc - x);
-                            b = abs(yc - y);
-                            polarEllipse(hdc, xc, yc, a, b);
-                            line = concatenateString("polarEllipse", 4, xc, yc, a, b) + tostring(c);
-                            fileContent.push_back(line);
-                            break;
-                        case MIDPOINTELLIPSE:
-                            a = abs(xc - x);
-                            b = abs(yc - y);
-                            ellipseMidPoint(hdc, xc, yc, a, b);
-                            line = concatenateString("ellipseMidPoint", 4,  xc, yc, a, b) + tostring(c);
-                            fileContent.push_back(line);
-                            break;
-                        case LINECLIPPINGRECT:
-                            CohenSuth(hdc, xc, yc, x, y, 100, 50, 400, 200);
-                            line = concatenateString("CohenSuth", 8, xc, yc, x, y, 100, 50, 400, 200) + tostring(c);
-                            fileContent.push_back(line);
-                            break;
-                        case LINECLIPPINGSQUARE:
-                            CohenSuth(hdc, xc, yc, x, y, 150,100, 350,300);
-                            line = concatenateString("CohenSuth", 8, xc, yc, x, y, 150, 100, 350, 300) + tostring(c);
-                            fileContent.push_back(line);
-                            break;
-                        default:
-                            break;
-                    }
-                    tempC = c;
-                    cnt = 0;
-                }
-
-
-                break;
+                tempC = c;
+                cnt = 0;
+            }
+            break;
 
             case WM_CREATE:
                 menus(hwnd);
@@ -1682,6 +1884,14 @@ LRESULT CALLBACK WindowProcedure (HWND hwnd, UINT message, WPARAM wParam, LPARAM
                         Rectangle(hdc,150, 100, 350, 300);
                         algo = SQUAREHERMITE;
                         break;
+                    }
+
+                    case POLYGONCLIPPING:
+                    {
+                        Rectangle(hdc, 100,200, 400,50);
+                        algo = POLYGONCLIPPING;
+                        break;
+
                     }
 
                     case RED:

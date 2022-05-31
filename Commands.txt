@@ -1,1 +1,6 @@
-CardinalSpline,5,2,122,172,167,273,601,78,468,216,669,323,red
+CohenSuth,383,88,262,137,100,50,400,200,blue
+CohenSuth,196,136,268,24,100,50,400,200,blue
+CohenSuth,298,163,458,153,100,50,400,200,blue
+CohenSuth,195,85,199,347,100,50,400,200,blue
+circlePolar,491,159,13,blue
+circleFillingLine,490,148,491,159,13,blue
